@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mewtwo Trading Estimator</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer type="module"></script>
+  </head>
+  <body>
+    <header>
+      <h1>Mewtwo Trading Estimator</h1>
+    </header>
+    <main>
+      <div class="main-content">
+        <div class="left-pane-wrapper">
+          <div class="simulator-container">
+            <h2>Trade Simulator</h2>
+            <div id="simulator-embed"></div>
+          </div>
+        </div>
+        <div class="right-pane-wrapper">
+          <div class="logo-container">
+            <h2>Mewtwo Trading Expert</h2>
+            <img src="./assets/mewtwo.gif" />
+          </div>
+          <div class="parameter-inputs">
+            <h2>Simulation Parameters</h2>
+            <form id="simulation-form">
+              <label>Simulation Timeline (Months):</label>
+              <input id="timeline-visible" type="text" placeholder="1 Month" />
+              <input id="timeline" type="hidden" />
+
+              <label>Initial Account Balance (USD):</label>
+              <input
+                id="account-balance-visible"
+                type="text"
+                placeholder="$2,500 USD"
+              />
+              <input id="account-balance" type="hidden" />
+
+              <label>Trades per Week:</label>
+              <input
+                id="trades-per-week"
+                type="number"
+                min="1"
+                placeholder="10"
+                required
+              />
+
+              <label>Estimated Win Rate (%):</label>
+              <input id="win-rate-visible" type="text" placeholder="50%" />
+              <input id="win-rate" type="hidden" />
+
+              <label>Risk to Reward Ratio:</label>
+              <input
+                id="risk-to-reward-visible"
+                type="text"
+                placeholder="1:2"
+              />
+              <input id="risk-to-reward" type="hidden" />
+
+              <label>Estimated Fee % Per Trade:</label>
+              <input
+                id="estimated-fee-percent-visible"
+                type="text"
+                placeholder="3%"
+              />
+              <input id="estimated-fee-percent" type="hidden" />
+
+              <label>% of Account Balance Risked per Trade</label>
+              <input
+                id="account-balance-risked-percent-visible"
+                type="text"
+                placeholder="2%"
+              />
+              <input id="account-balance-risked-percent" type="hidden" />
+
+              <label>Total Monthly Expenses (USD)</label>
+              <input
+                id="total-monthly-expenses-visible"
+                type="text"
+                placeholder="$4,000 USD"
+              />
+              <input id="total-monthly-expenses" type="hidden" />
+
+              <label>Expenses Begin Month (-1 to disable):</label>
+              <input
+                id="expenses-begin-month"
+                type="number"
+                min="-1"
+                placeholder="4"
+                required
+              />
+            </form>
+            <button id="run-simulation" type="button">Run Simulation</button>
+          </div>
+        </div>
+      </div>
+    </main>
+    <footer></footer>
+  </body>
+</html>

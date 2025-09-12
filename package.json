@@ -1,0 +1,16 @@
+{
+  "name": "trading-earnings-calculator",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "chai": "^6.0.1",
+    "mocha": "^11.7.2"
+  }
+}
