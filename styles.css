@@ -5,6 +5,7 @@
 }
 
 html {
+  background-color: white;
   font-size: 16px;
 }
 
@@ -27,6 +28,7 @@ header {
   border: 1px solid red;
   display: grid;
   grid-template-columns: 2fr 1fr;
+  justify-items: center;
 }
 
 .simulator-container {
@@ -52,6 +54,7 @@ header {
 }
 
 #simulator-embed {
+  display: flex;
   background-color: rgb(188, 186, 186);
   border-top: rgb(93, 92, 92) solid 2px;
   border-bottom: rgb(93, 92, 92) solid 2px;
@@ -61,6 +64,7 @@ header {
   padding: 1rem;
   margin: 1rem 0rem 2rem 0rem;
   overflow: scroll;
+  flex-direction: column;
 }
 
 .left-pane-wrapper {
@@ -161,7 +165,7 @@ header {
 @media only screen and (max-width: 768px) {
   .main-content {
     grid-template-columns: 1fr;
-    align-content: center;
+    align-items: center;
     justify-content: center;
   }
 
