@@ -149,7 +149,7 @@ function runSimulation() {
 
     console.log(`Total Trading Profits: $${formatConsoleCurrency(totalGrossProfit)}`);
     console.log(`Total Deducted Expenses: $${formatConsoleCurrency(totalExpenses)}`);
-    console.log(`Total Net Profit for the Year: $${formatConsoleCurrency(totalNetProfit)}`);
+    console.log(`Total Net Profit for the Period: $${formatConsoleCurrency(totalNetProfit)}`);
     console.log(`Final Account Balance: $${formatConsoleCurrency(finalBalance)}`);
 }
 
