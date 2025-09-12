@@ -140,7 +140,7 @@ function runSimulation() {
     });
 
     // --- Annual Summary ---
-    console.log("\n--- Annual Summary ---");
+    console.log("\n--- Simulation Period Summary ---");
 
     const totalNetProfit = monthlyProfits.reduce((sum, monthData) => sum + monthData.netProfit, 0);
     const totalGrossProfit = monthlyProfits.reduce((sum, monthData) => sum + monthData.grossProfit, 0);
