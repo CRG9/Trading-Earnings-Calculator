@@ -18,7 +18,6 @@ header {
   text-align: center;
   padding: 0.5rem;
   height: 5rem;
-  border: purple 1px solid;
 }
 
 .main-content {
@@ -28,7 +27,10 @@ header {
   border: 1px solid red;
   display: grid;
   grid-template-columns: 2fr 1fr;
-  justify-items: center;
+  justify-items: space-evenly;
+  justify-content: center;
+  align-items: center;
+  grid-gap: 1rem;
 }
 
 .simulator-container {
@@ -36,13 +38,12 @@ header {
   background-color: rgb(105, 221, 105);
   border-radius: 25px;
   height: 100%;
-  max-width: 50rem;
   width: 100%;
+  max-width: 50rem;
+  margin: 1rem;
   display: flex;
   justify-content: flex-start;
   flex-direction: column;
-  align-items: center;
-  margin: 1rem;
 }
 
 .simulator-container h2 {
@@ -70,7 +71,7 @@ header {
 .left-pane-wrapper {
   border: 1px dashed rgb(0, 255, 38);
   height: 100%;
-  margin: 0.5rem;
+  margin: 1rem;
   padding: 1rem;
   display: flex;
   justify-content: flex-start;
@@ -167,6 +168,7 @@ header {
     grid-template-columns: 1fr;
     align-items: center;
     justify-content: center;
+    justify-items: center;
   }
 
   .simulator-container {
