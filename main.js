@@ -11,31 +11,42 @@
  * @returns {number} The estimated net profit for the month.
  */
 export function calculateMonthlyProfit(
-  accountBalance,
-  riskPercentage,
-  tradesPerWeek,
-  winPercentage,
-  riskToRewardRatio,
-  feeAsPercentageOfRisk
+    accountBalance,
+    riskPercentage,
+    tradesPerWeek,
+    winPercentage,
+    riskToRewardRatio,
+    feeAsPercentageOfRisk
 ) {
-  const tradesPerMonth = tradesPerWeek * 4;
-  const tradesWon = tradesPerMonth * winPercentage;
-  const tradesLost = tradesPerMonth - tradesWon;
+    const tradesPerMonth = tradesPerWeek * 4;
+    let currentBalance = accountBalance;
 
-  // Calculate the growth factor for a winning trade
-  // Profit is (Risk * RR) - (Fee)
-  const winFactor = 1 + riskPercentage * (riskToRewardRatio - feeAsPercentageOfRisk);
+    // Loop through each trade individually for the month
+    for (let i = 0; i < tradesPerMonth; i++) {
+        // Stop if the account is blown
+        if (currentBalance <= 0) {
+            break;
+        }
 
-  // Calculate the decay factor for a losing trade
-  // Loss is (Risk) + (Fee)
-  const lossFactor = 1 - riskPercentage * (1 + feeAsPercentageOfRisk);
+        // Determine the exact dollar amount to risk on this single trade
+        const amountRisked = currentBalance * riskPercentage;
 
-  // Apply the compounding effect of all wins and losses
-  const finalBalance =
-    accountBalance * Math.pow(winFactor, tradesWon) * Math.pow(lossFactor, tradesLost);
+        // Use Math.random() to simulate the trade's outcome
+        if (Math.random() < winPercentage) {
+            // --- WIN ---
+            // Profit = (Risk * RR) - (Fee)
+            const profit = (amountRisked * riskToRewardRatio) - (amountRisked * feeAsPercentageOfRisk);
+            currentBalance += profit;
+        } else {
+            // --- LOSS ---
+            // Loss = (Risk) + (Fee)
+            const loss = amountRisked + (amountRisked * feeAsPercentageOfRisk);
+            currentBalance -= loss;
+        }
+    }
 
-  // Return the net profit after all trades and fees
-  return finalBalance - accountBalance;
+    // Return the net profit after all trades and fees
+    return currentBalance - accountBalance;
 }
 
 /**
