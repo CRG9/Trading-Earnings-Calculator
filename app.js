@@ -1,16 +1,15 @@
-// 1. Import the 'annualizeProfits' function from your main logic file.
-import { annualizeProfits } from './main.js';
+// 1. Import the main simulation function from your logic file.
+import { runMonteCarlo } from './main.js';
 
 // --- Global DOM Elements & Helpers ---
 const outputDiv = document.getElementById('simulator-embed');
 const simulationButton = document.getElementById('run-simulation');
-const inputsToFormat = document.querySelectorAll('#account-balance-visible, #win-rate-visible, #risk-to-reward-visible, #estimated-fee-percent-visible, #account-balance-risked-percent-visible, #total-monthly-expenses-visible, #expenses-begin-month-visible, #timeline-visible');
+const inputsToFormat = document.querySelectorAll('#account-balance-visible, #win-rate-visible, #risk-to-reward-visible, #estimated-fee-percent-visible, #account-balance-risked-percent-visible, #total-monthly-expenses-visible, #expenses-begin-month-visible, #timeline-visible, #simulation-runs-visible');
 
 // --- DELAY HELPER ---
-// New helper function to create a pause.
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
-// Helper function for console output formatting.
+// --- FORMATTING HELPERS ---
 const formatConsoleCurrency = (number) => {
     return number.toLocaleString('en-US', {
         minimumFractionDigits: 2,
@@ -18,7 +17,6 @@ const formatConsoleCurrency = (number) => {
     });
 };
 
-// Helper for VISIBLE input formatting.
 const formatVisibleCurrency = (number) => {
     return number.toLocaleString('en-US', {
         style: 'currency',
@@ -66,18 +64,13 @@ function updateAndFormatInput(event) {
                 formattedValue = `1:${numberValue}`;
                 break;
             case 'expenses-begin-month-visible':
-                if (numberValue === -1) {
-                    formattedValue = 'Disabled';
-                } else {
-                    formattedValue = `${numberValue} Month`;
-                }
+                formattedValue = (numberValue === -1) ? 'Disabled' : `${numberValue} Month`;
                 break;
             case 'timeline-visible':
-                if (numberValue === 1) {
-                    formattedValue = '1 Month';
-                } else {
-                    formattedValue = `${numberValue} Months`;
-                }
+                formattedValue = (numberValue === 1) ? '1 Month' : `${numberValue} Months`;
+                break;
+            case 'simulation-runs-visible':
+                formattedValue = (numberValue === 1) ? '1 Run' : `${numberValue.toLocaleString()} Runs`;
                 break;
         }
         visibleInput.value = formattedValue;
@@ -99,6 +92,7 @@ function getAndValidateInputs() {
         expensesBegin: parseInt(document.getElementById('expenses-begin-month').value, 10),
         totalMonthlyExpenses: parseFloat(document.getElementById('total-monthly-expenses').value),
         simulationTimeline: parseInt(document.getElementById('timeline').value, 10),
+        simulationRuns: parseInt(document.getElementById('simulation-runs').value, 10),
         myFeePercentage: parseFloat(document.getElementById('estimated-fee-percent').value) / 100,
     };
 
@@ -111,13 +105,12 @@ function getAndValidateInputs() {
 }
 
 // --- Main Simulation Function ---
-// MODIFIED: Function is now async and handles button state.
 async function runSimulation() {
-    simulationButton.disabled = true; // Disable button
+    simulationButton.disabled = true;
     outputDiv.innerHTML = '';
     
-    const shortDelay = 200;
-    const longDelay = 400;
+    const shortDelay = 400;
+    const longDelay = 800;
 
     const params = getAndValidateInputs();
 
@@ -125,72 +118,62 @@ async function runSimulation() {
         console.log("\n--- Simulation Aborted ---");
         await delay(shortDelay);
         console.log("Error: Please ensure all fields are filled out with valid numbers.");
-        simulationButton.disabled = false; // Re-enable button
+        simulationButton.disabled = false;
         return;
     }
 
-    const {
-        startingBalance, riskPerTrade, tradesPerWeek, winRate,
-        riskToReward, totalMonthlyExpenses, expensesBegin,
-        simulationTimeline, myFeePercentage
-    } = params;
-    
-    const monthlyProfits = annualizeProfits(startingBalance, riskPerTrade, tradesPerWeek, winRate, riskToReward, totalMonthlyExpenses, expensesBegin, simulationTimeline, myFeePercentage);
-
-    // --- Display Results (with delays) ---
-    console.log("\n--- Simulation Beginning ---");
-    await delay(longDelay);
-
-    console.log(`Initial Account Balance: ${formatVisibleCurrency(startingBalance)}`);
+    console.log("\n--- Running Monte Carlo Simulation ---");
     await delay(shortDelay);
-
-    console.log(`Total Monthly Expenses: $${formatConsoleCurrency(totalMonthlyExpenses)}`);
+    console.log(`Simulating ${params.simulationRuns.toLocaleString()} possible futures...`);
     await delay(longDelay);
 
-    console.log("\nMonthly Breakdown:");
-    await delay(longDelay);
+    // --- MONTE CARLO EXECUTION ---
+    const simulationResults = runMonteCarlo(params, params.simulationRuns);
+
+    // --- MONTE CARLO ANALYSIS ---
+    const survivingRuns = simulationResults.filter(run => run.survived);
+    const survivalRate = (survivingRuns.length / params.simulationRuns) * 100;
     
-    // MODIFIED: Changed forEach to a for...of loop to support await.
-    for (const [index, monthData] of monthlyProfits.entries()) {
-        const grossText = `Trade Profit: $${formatConsoleCurrency(monthData.grossProfit)}`;
-        const expenseText = `| Expenses: $${formatConsoleCurrency(monthData.expensesDeducted)}`;
-        const netText = `| Net Profit: $${formatConsoleCurrency(monthData.netProfit)}`;
-        const balanceText = `| Ending Balance: $${formatConsoleCurrency(monthData.endBalance)}`;
-        console.log(`Month ${index + 1}: ${grossText.padEnd(25)} ${expenseText.padEnd(25)} ${netText.padEnd(25)} ${balanceText}`);
-        await delay(shortDelay); // Pause after each month's line
+    let averageBalance = 0;
+    let medianBalance = 0;
+    let bestCase = 0;
+    let worstCase = 0;
+
+    if (survivingRuns.length > 0) {
+        const finalBalances = survivingRuns.map(run => run.finalBalance).sort((a, b) => a - b);
+        averageBalance = finalBalances.reduce((sum, val) => sum + val, 0) / finalBalances.length;
+        medianBalance = finalBalances[Math.floor(finalBalances.length / 2)];
+        bestCase = finalBalances[finalBalances.length - 1];
+        worstCase = finalBalances[0];
     }
-
-    // --- Annual Summary (with delays) ---
-    console.log("\n--- Simulation Period Summary ---");
+    
+    // --- DISPLAY STATISTICAL RESULTS ---
+    console.log("\n--- Monte Carlo Simulation Results ---");
     await delay(longDelay);
 
-    const totalNetProfit = monthlyProfits.reduce((sum, monthData) => sum + monthData.netProfit, 0);
-    const totalGrossProfit = monthlyProfits.reduce((sum, monthData) => sum + monthData.grossProfit, 0);
-    const totalExpenses = totalGrossProfit - totalNetProfit;
-    const finalBalance = startingBalance + totalNetProfit;
-
-    console.log(`Total Trading Profits: $${formatConsoleCurrency(totalGrossProfit)}`);
+    console.log(`Survival Rate: ${survivalRate.toFixed(2)}% of simulations were profitable or solvent.`);
     await delay(shortDelay);
 
-    console.log(`Total Deducted Expenses: $${formatConsoleCurrency(totalExpenses)}`);
-    await delay(shortDelay);
-
-    console.log(`Total Net Profit for the Period: $${formatConsoleCurrency(totalNetProfit)}`);
+    console.log(`Average Final Balance: ${formatVisibleCurrency(averageBalance)}`);
     await delay(shortDelay);
     
-    console.log(`Final Account Balance: $${formatConsoleCurrency(finalBalance)}`);
+    console.log(`Median Final Balance: ${formatVisibleCurrency(medianBalance)} (50% of outcomes were better, 50% were worse)`);
+    await delay(shortDelay);
+
+    console.log(`Best Case Scenario: ${formatVisibleCurrency(bestCase)}`);
+    await delay(shortDelay);
+
+    console.log(`Worst Case (surviving): ${formatVisibleCurrency(worstCase)}`);
     await delay(longDelay);
-    
+
     console.log("\n--- Simulation Complete ---");
-    await delay(longDelay);
-    
-    simulationButton.disabled = false; // Re-enable button at the end
+    simulationButton.disabled = false;
 }
 
+
 // --- Event Listener & Initial Display ---
-// MODIFIED: Wrapped initial logs in an async IIFE for a delayed startup effect.
 (async () => {
-    console.log("\nBooting Up Simulator...");
+    console.log("\nBooting Up Monte Carlo Simulator...");
     await delay(1000);
     console.log("Please enter your inputs then press the button.");
 })();
