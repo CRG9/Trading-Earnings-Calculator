@@ -6,6 +6,10 @@ const outputDiv = document.getElementById('simulator-embed');
 const simulationButton = document.getElementById('run-simulation');
 const inputsToFormat = document.querySelectorAll('#account-balance-visible, #win-rate-visible, #risk-to-reward-visible, #estimated-fee-percent-visible, #account-balance-risked-percent-visible, #total-monthly-expenses-visible, #expenses-begin-month-visible, #timeline-visible');
 
+// --- DELAY HELPER ---
+// New helper function to create a pause.
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
 // Helper function for console output formatting.
 const formatConsoleCurrency = (number) => {
     return number.toLocaleString('en-US', {
@@ -30,6 +34,8 @@ console.log = function(...args) {
     p.textContent = args.join(' ');
     p.style.padding = '0.25rem';
     outputDiv.appendChild(p);
+    // Auto-scroll to the bottom
+    outputDiv.scrollTop = outputDiv.scrollHeight;
 };
 
 // --- Input Formatting and Syncing Logic ---
@@ -105,13 +111,21 @@ function getAndValidateInputs() {
 }
 
 // --- Main Simulation Function ---
-function runSimulation() {
+// MODIFIED: Function is now async and handles button state.
+async function runSimulation() {
+    simulationButton.disabled = true; // Disable button
     outputDiv.innerHTML = '';
+    
+    const shortDelay = 200;
+    const longDelay = 400;
+
     const params = getAndValidateInputs();
 
     if (params === null) {
         console.log("\n--- Simulation Aborted ---");
+        await delay(shortDelay);
         console.log("Error: Please ensure all fields are filled out with valid numbers.");
+        simulationButton.disabled = false; // Re-enable button
         return;
     }
 
@@ -123,24 +137,32 @@ function runSimulation() {
     
     const monthlyProfits = annualizeProfits(startingBalance, riskPerTrade, tradesPerWeek, winRate, riskToReward, totalMonthlyExpenses, expensesBegin, simulationTimeline, myFeePercentage);
 
-    // --- Display Results ---
-    console.log("\n--- Simulation Complete ---");
+    // --- Display Results (with delays) ---
+    console.log("\n--- Simulation Beginning ---");
+    await delay(longDelay);
+
     console.log(`Initial Account Balance: ${formatVisibleCurrency(startingBalance)}`);
+    await delay(shortDelay);
+
     console.log(`Total Monthly Expenses: $${formatConsoleCurrency(totalMonthlyExpenses)}`);
+    await delay(longDelay);
+
     console.log("\nMonthly Breakdown:");
+    await delay(longDelay);
     
-    // --- CHANGE IS HERE ---
-    // Loop now prints Expenses Deducted in its own column.
-    monthlyProfits.forEach((monthData, index) => {
+    // MODIFIED: Changed forEach to a for...of loop to support await.
+    for (const [index, monthData] of monthlyProfits.entries()) {
         const grossText = `Trade Profit: $${formatConsoleCurrency(monthData.grossProfit)}`;
         const expenseText = `| Expenses: $${formatConsoleCurrency(monthData.expensesDeducted)}`;
         const netText = `| Net Profit: $${formatConsoleCurrency(monthData.netProfit)}`;
         const balanceText = `| Ending Balance: $${formatConsoleCurrency(monthData.endBalance)}`;
         console.log(`Month ${index + 1}: ${grossText.padEnd(25)} ${expenseText.padEnd(25)} ${netText.padEnd(25)} ${balanceText}`);
-    });
+        await delay(shortDelay); // Pause after each month's line
+    }
 
-    // --- Annual Summary ---
+    // --- Annual Summary (with delays) ---
     console.log("\n--- Simulation Period Summary ---");
+    await delay(longDelay);
 
     const totalNetProfit = monthlyProfits.reduce((sum, monthData) => sum + monthData.netProfit, 0);
     const totalGrossProfit = monthlyProfits.reduce((sum, monthData) => sum + monthData.grossProfit, 0);
@@ -148,12 +170,29 @@ function runSimulation() {
     const finalBalance = startingBalance + totalNetProfit;
 
     console.log(`Total Trading Profits: $${formatConsoleCurrency(totalGrossProfit)}`);
+    await delay(shortDelay);
+
     console.log(`Total Deducted Expenses: $${formatConsoleCurrency(totalExpenses)}`);
+    await delay(shortDelay);
+
     console.log(`Total Net Profit for the Period: $${formatConsoleCurrency(totalNetProfit)}`);
+    await delay(shortDelay);
+    
     console.log(`Final Account Balance: $${formatConsoleCurrency(finalBalance)}`);
+    await delay(longDelay);
+    
+    console.log("\n--- Simulation Complete ---");
+    await delay(longDelay);
+    
+    simulationButton.disabled = false; // Re-enable button at the end
 }
 
-// --- Event Listener ---
-console.log("\nBooting Up Simulator...");
-console.log("Please enter your inputs then press the button.");
+// --- Event Listener & Initial Display ---
+// MODIFIED: Wrapped initial logs in an async IIFE for a delayed startup effect.
+(async () => {
+    console.log("\nBooting Up Simulator...");
+    await delay(1000);
+    console.log("Please enter your inputs then press the button.");
+})();
+
 simulationButton.addEventListener('click', runSimulation);
