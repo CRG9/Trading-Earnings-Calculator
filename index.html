@@ -28,6 +28,10 @@
           <div class="parameter-inputs">
             <h2>Simulation Parameters</h2>
             <form id="simulation-form">
+              <label>Simulation Runs (Number of Scenarios Compiled):</label>
+              <input id="simulation-runs-visible" type="text" placeholder="1,000 Scenarios" />
+              <input id="simulation-runs" type="hidden" />
+
               <label>Simulation Timeline (Months):</label>
               <input id="timeline-visible" type="text" placeholder="1 Month" />
               <input id="timeline" type="hidden" />
@@ -87,12 +91,13 @@
 
               <label>Expenses Begin Month (-1 to disable):</label>
               <input
-                id="expenses-begin-month"
+                id="expenses-begin-month-visible"
                 type="number"
                 min="-1"
                 placeholder="4"
                 required
               />
+              <input id="expenses-begin-month" type="hidden" />
             </form>
             <button id="run-simulation" type="button">Run Simulation</button>
           </div>
