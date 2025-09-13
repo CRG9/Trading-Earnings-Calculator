@@ -86,10 +86,9 @@ export function annualizeProfits(
  * @returns {object[]} An array where each element is the final state of a single simulation run.
  */
 export function runMonteCarlo(params, simulationRuns) {
-    const allRunsFinalResults = [];
+    const allRunsResults = [];
 
     for (let i = 0; i < simulationRuns; i++) {
-        // Run one full simulation "lifetime"
         const singleRunResult = annualizeProfits(
             params.startingBalance,
             params.riskPerTrade,
@@ -102,22 +101,22 @@ export function runMonteCarlo(params, simulationRuns) {
             params.myFeePercentage
         );
 
-        // We only need to store the final outcome of each run
-        const finalMonth = singleRunResult[singleRunResult.length - 1];
-        
-        // If the simulation ended prematurely (account blew up), finalMonth will be undefined
+        const finalMonth = singleRunResult.length > 0 ? singleRunResult[singleRunResult.length - 1] : null;
+
         if (finalMonth) {
-            allRunsFinalResults.push({
+            allRunsResults.push({
                 finalBalance: finalMonth.endBalance,
-                survived: true
+                survived: true,
+                monthlyData: singleRunResult // <-- KEY CHANGE: Include the full monthly breakdown
             });
         } else {
-            allRunsFinalResults.push({
+            allRunsResults.push({
                 finalBalance: 0,
-                survived: false
+                survived: false,
+                monthlyData: []
             });
         }
     }
 
-    return allRunsFinalResults;
+    return allRunsResults;
 }

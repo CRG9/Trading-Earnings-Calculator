@@ -68,6 +68,16 @@ header {
   flex-direction: column;
 }
 
+.clickable {
+    cursor: pointer;
+    color: #4303ab; /* A light blue color to indicate it's a link */
+    text-decoration: none;
+}
+
+.clickable:hover {
+    text-decoration: underline;
+}
+
 .left-pane-wrapper {
   border: 1px dashed rgb(0, 255, 38);
   height: 100%;

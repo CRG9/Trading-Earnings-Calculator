@@ -6,6 +6,9 @@ const outputDiv = document.getElementById('simulator-embed');
 const simulationButton = document.getElementById('run-simulation');
 const inputsToFormat = document.querySelectorAll('#account-balance-visible, #win-rate-visible, #risk-to-reward-visible, #estimated-fee-percent-visible, #account-balance-risked-percent-visible, #total-monthly-expenses-visible, #expenses-begin-month-visible, #timeline-visible, #simulation-runs-visible');
 
+// --- A global variable to direct console output ---
+let activeView;
+
 // --- DELAY HELPER ---
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
@@ -26,13 +29,23 @@ const formatVisibleCurrency = (number) => {
 
 // --- Console Output Override ---
 const originalConsoleLog = console.log;
-console.log = function(...args) {
-    originalConsoleLog.apply(console, args);
+console.log = function(message, onClickCallback) {
+    originalConsoleLog(message);
     const p = document.createElement('p');
-    p.textContent = args.join(' ');
+    p.textContent = message;
     p.style.padding = '0.25rem';
-    outputDiv.appendChild(p);
-    // Auto-scroll to the bottom
+
+    if (onClickCallback && typeof onClickCallback === 'function') {
+        p.classList.add('clickable');
+        p.addEventListener('click', onClickCallback);
+    }
+
+    if (activeView) {
+        activeView.appendChild(p);
+    } else {
+        outputDiv.appendChild(p);
+    }
+    
     outputDiv.scrollTop = outputDiv.scrollHeight;
 };
 
@@ -98,9 +111,14 @@ function getAndValidateInputs() {
 
     for (const key in params) {
         if (isNaN(params[key])) {
-            return null;
+            return "Error: Please ensure all fields are filled out with valid numbers.";
         }
     }
+
+    if (params.simulationRuns > 100000) {
+        return "Error: Number of simulation runs cannot exceed 100,000.";
+    }
+
     return params;
 }
 
@@ -109,70 +127,113 @@ async function runSimulation() {
     simulationButton.disabled = true;
     outputDiv.innerHTML = '';
     
+    const summaryView = document.createElement('div');
+    const detailsView = document.createElement('div');
+    detailsView.style.display = 'none';
+    outputDiv.appendChild(summaryView);
+    outputDiv.appendChild(detailsView);
+    activeView = summaryView;
+    let isViewTransitioning = false;
     const shortDelay = 400;
     const longDelay = 800;
+    
+    const validationResult = getAndValidateInputs();
 
-    const params = getAndValidateInputs();
-
-    if (params === null) {
+    if (typeof validationResult === 'string') {
         console.log("\n--- Simulation Aborted ---");
         await delay(shortDelay);
-        console.log("Error: Please ensure all fields are filled out with valid numbers.");
+        console.log(validationResult);
         simulationButton.disabled = false;
         return;
     }
-
+    
+    const params = validationResult;
+    
     console.log("\n--- Running Monte Carlo Simulation ---");
     await delay(shortDelay);
     console.log(`Simulating ${params.simulationRuns.toLocaleString()} possible futures...`);
     await delay(longDelay);
 
-    // --- MONTE CARLO EXECUTION ---
     const simulationResults = runMonteCarlo(params, params.simulationRuns);
 
-    // --- MONTE CARLO ANALYSIS ---
     const survivingRuns = simulationResults.filter(run => run.survived);
+    survivingRuns.sort((a, b) => a.finalBalance - b.finalBalance);
     const survivalRate = (survivingRuns.length / params.simulationRuns) * 100;
-    
     let averageBalance = 0;
-    let medianBalance = 0;
-    let bestCase = 0;
-    let worstCase = 0;
-
+    let medianScenario, bestCaseScenario, worstCaseScenario, averageScenario;
     if (survivingRuns.length > 0) {
-        const finalBalances = survivingRuns.map(run => run.finalBalance).sort((a, b) => a - b);
+        const finalBalances = survivingRuns.map(run => run.finalBalance);
         averageBalance = finalBalances.reduce((sum, val) => sum + val, 0) / finalBalances.length;
-        medianBalance = finalBalances[Math.floor(finalBalances.length / 2)];
-        bestCase = finalBalances[finalBalances.length - 1];
-        worstCase = finalBalances[0];
+        worstCaseScenario = survivingRuns[0];
+        bestCaseScenario = survivingRuns[survivingRuns.length - 1];
+        medianScenario = survivingRuns[Math.floor(survivingRuns.length / 2)];
+        averageScenario = survivingRuns.reduce((prev, curr) => (Math.abs(curr.finalBalance - averageBalance) < Math.abs(prev.finalBalance - averageBalance) ? curr : prev));
+    }
+
+    async function displayMonthlyBreakdown(title, monthlyData) {
+        if (isViewTransitioning) return;
+        isViewTransitioning = true;
+
+        detailsView.innerHTML = '';
+        activeView = detailsView;
+
+        console.log(`\n--- ${title} ---`);
+        await delay(longDelay);
+
+        for (const [index, monthData] of monthlyData.entries()) {
+            const grossText = `Trade Profit: $${formatConsoleCurrency(monthData.grossProfit)}`;
+            const expenseText = `| Expenses: $${formatConsoleCurrency(monthData.expensesDeducted)}`;
+            const netText = `| Net Profit: $${formatConsoleCurrency(monthData.netProfit)}`;
+            const balanceText = `| Ending Balance: $${formatConsoleCurrency(monthData.endBalance)}`;
+            console.log(`Month ${index + 1}: ${grossText.padEnd(25)} ${expenseText.padEnd(25)} ${netText.padEnd(25)} ${balanceText}`);
+            await delay(100);
+        }
+        
+        await delay(longDelay);
+        console.log("\n« Return to Summary", () => {
+            if (isViewTransitioning) return;
+            isViewTransitioning = true;
+            detailsView.style.display = 'none';
+            summaryView.style.display = 'block';
+            activeView = summaryView;
+            setTimeout(() => { isViewTransitioning = false; }, 100);
+        });
+
+        summaryView.style.display = 'none';
+        detailsView.style.display = 'block';
+        isViewTransitioning = false;
     }
     
-    // --- DISPLAY STATISTICAL RESULTS ---
     console.log("\n--- Monte Carlo Simulation Results ---");
     await delay(longDelay);
-
     console.log(`Survival Rate: ${survivalRate.toFixed(2)}% of simulations were profitable or solvent.`);
     await delay(shortDelay);
-
-    console.log(`Average Final Balance: ${formatVisibleCurrency(averageBalance)}`);
-    await delay(shortDelay);
-    
-    console.log(`Median Final Balance: ${formatVisibleCurrency(medianBalance)} (50% of outcomes were better, 50% were worse)`);
-    await delay(shortDelay);
-
-    console.log(`Best Case Scenario: ${formatVisibleCurrency(bestCase)}`);
-    await delay(shortDelay);
-
-    console.log(`Worst Case (surviving): ${formatVisibleCurrency(worstCase)}`);
-    await delay(longDelay);
-
+    if (averageScenario) {
+        console.log(`Average Final Balance: ${formatVisibleCurrency(averageBalance)}`, () => displayMonthlyBreakdown("Details for Average Scenario", averageScenario.monthlyData));
+        await delay(shortDelay);
+    }
+    if (medianScenario) {
+        console.log(`Median Final Balance: ${formatVisibleCurrency(medianScenario.finalBalance)} (50% of outcomes were better, 50% were worse)`, () => displayMonthlyBreakdown("Details for Median Scenario", medianScenario.monthlyData));
+        await delay(shortDelay);
+    }
+    if (bestCaseScenario) {
+        console.log(`Best Case Scenario: ${formatVisibleCurrency(bestCaseScenario.finalBalance)}`, () => displayMonthlyBreakdown("Details for Best Case Scenario", bestCaseScenario.monthlyData));
+        await delay(shortDelay);
+    }
+    if (worstCaseScenario) {
+        console.log(`Worst Case (surviving): ${formatVisibleCurrency(worstCaseScenario.finalBalance)}`, () => displayMonthlyBreakdown("Details for Worst Case Scenario", worstCaseScenario.monthlyData));
+        await delay(longDelay);
+    }
     console.log("\n--- Simulation Complete ---");
     simulationButton.disabled = false;
 }
 
-
 // --- Event Listener & Initial Display ---
 (async () => {
+    const initialView = document.createElement('div');
+    outputDiv.appendChild(initialView);
+    activeView = initialView;
+    
     console.log("\nBooting Up Monte Carlo Simulator...");
     await delay(1000);
     console.log("Please enter your inputs then press the button.");
