@@ -97,21 +97,23 @@ inputsToFormat.forEach(input => {
 // --- Data Gathering & Validation ---
 function getAndValidateInputs() {
     const params = {
-        startingBalance: parseFloat(document.getElementById('account-balance').value),
-        riskPerTrade: parseFloat(document.getElementById('account-balance-risked-percent').value) / 100,
-        tradesPerWeek: parseInt(document.getElementById('trades-per-week').value, 10),
-        winRate: parseFloat(document.getElementById('win-rate').value) / 100,
-        riskToReward: parseFloat(document.getElementById('risk-to-reward').value),
-        expensesBegin: parseInt(document.getElementById('expenses-begin-month').value, 10),
-        totalMonthlyExpenses: parseFloat(document.getElementById('total-monthly-expenses').value),
-        simulationTimeline: parseInt(document.getElementById('timeline').value, 10),
-        simulationRuns: parseInt(document.getElementById('simulation-runs').value, 10),
-        myFeePercentage: parseFloat(document.getElementById('estimated-fee-percent').value) / 100,
+        // Use the OR || operator to assign a default if the input is empty
+        startingBalance: parseFloat(document.getElementById('account-balance').value) || 25000,
+        riskPerTrade: (parseFloat(document.getElementById('account-balance-risked-percent').value) || 2) / 100,
+        tradesPerWeek: parseInt(document.getElementById('trades-per-week').value, 10) || 10,
+        winRate: (parseFloat(document.getElementById('win-rate').value) || 50) / 100,
+        riskToReward: parseFloat(document.getElementById('risk-to-reward').value) || 2,
+        expensesBegin: parseInt(document.getElementById('expenses-begin-month').value, 10) || 4,
+        totalMonthlyExpenses: parseFloat(document.getElementById('total-monthly-expenses').value) || 4000,
+        simulationTimeline: parseInt(document.getElementById('timeline').value, 10) || 1,
+        simulationRuns: parseInt(document.getElementById('simulation-runs').value, 10) || 1000,
+        myFeePercentage: (parseFloat(document.getElementById('estimated-fee-percent').value) || 3) / 100,
     };
 
+    // This loop now serves as a final check, though defaults should prevent NaNs
     for (const key in params) {
         if (isNaN(params[key])) {
-            return "Error: Please ensure all fields are filled out with valid numbers.";
+            return "Error: An invalid non-numeric value was entered in one of the fields.";
         }
     }
 
