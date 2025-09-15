@@ -33,7 +33,7 @@ export function calculateMonthlyProfit(
  * Simulates one "lifetime" of trading over a given timeline.
  * (This function also remains unchanged)
  */
-export function annualizeProfits(
+export function accumulateProfits(
     startingBalance,
     riskPercentage,
     tradesPerWeek,
@@ -80,7 +80,7 @@ export function annualizeProfits(
 
 /**
  * --- NEW FUNCTION ---
- * Runs the annualizeProfits simulation multiple times to generate a distribution of possible outcomes.
+ * Runs the accumulateProfits simulation multiple times to generate a distribution of possible outcomes.
  * @param {object} params - An object containing all the parameters for the simulation.
  * @param {number} simulationRuns - The number of "lifetimes" to simulate (e.g., 10000).
  * @returns {object[]} An array where each element is the final state of a single simulation run.
@@ -89,7 +89,7 @@ export function runMonteCarlo(params, simulationRuns) {
     const allRunsResults = [];
 
     for (let i = 0; i < simulationRuns; i++) {
-        const singleRunResult = annualizeProfits(
+        const singleRunResult = accumulateProfits(
             params.startingBalance,
             params.riskPerTrade,
             params.tradesPerWeek,
