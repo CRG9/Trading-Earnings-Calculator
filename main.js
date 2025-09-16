@@ -1,6 +1,5 @@
 /**
  * Calculates the estimated monthly profit from a trading strategy with fees.
- * (This function remains unchanged as its logic for a single month is correct)
  */
 export function calculateMonthlyProfit(
     accountBalance,
@@ -31,7 +30,6 @@ export function calculateMonthlyProfit(
 
 /**
  * Simulates one "lifetime" of trading over a given timeline.
- * (This function also remains unchanged)
  */
 export function accumulateProfits(
     startingBalance,
@@ -48,13 +46,18 @@ export function accumulateProfits(
     const resultsArray = [];
 
     for (let i = 0; i < simulationTimeline; i++) {
+        // This is the critical section that ensures the correct fee is passed.
         const grossMonthlyProfit = calculateMonthlyProfit(
-            currentBalance, riskPercentage, tradesPerWeek, winPercentage,
-            riskToRewardRatio, myFeePercentage
+            currentBalance,
+            riskPercentage,
+            tradesPerWeek,
+            winPercentage,
+            riskToRewardRatio,
+            myFeePercentage // ✅ Ensures the fee (e.g., 0.03) is used here
         );
 
         let netMonthlyProfit;
-        if (expensesBegin >= 1 && i + 1 >= expensesBegin) {
+        if (expensesBegin > 0 && i + 1 >= expensesBegin) {
             netMonthlyProfit = grossMonthlyProfit - monthlyExpenses;
         } else {
             netMonthlyProfit = grossMonthlyProfit;
@@ -79,11 +82,7 @@ export function accumulateProfits(
 
 
 /**
- * --- NEW FUNCTION ---
- * Runs the accumulateProfits simulation multiple times to generate a distribution of possible outcomes.
- * @param {object} params - An object containing all the parameters for the simulation.
- * @param {number} simulationRuns - The number of "lifetimes" to simulate (e.g., 10000).
- * @returns {object[]} An array where each element is the final state of a single simulation run.
+ * Runs the accumulateProfits simulation multiple times.
  */
 export function runMonteCarlo(params, simulationRuns) {
     const allRunsResults = [];
@@ -104,10 +103,12 @@ export function runMonteCarlo(params, simulationRuns) {
         const finalMonth = singleRunResult.length > 0 ? singleRunResult[singleRunResult.length - 1] : null;
 
         if (finalMonth) {
+            const didSurvive = finalMonth.endBalance > 0;
+
             allRunsResults.push({
                 finalBalance: finalMonth.endBalance,
-                survived: true,
-                monthlyData: singleRunResult // <-- KEY CHANGE: Include the full monthly breakdown
+                survived: didSurvive,
+                monthlyData: singleRunResult
             });
         } else {
             allRunsResults.push({
