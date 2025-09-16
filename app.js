@@ -29,6 +29,43 @@ const formatVisibleCurrency = (number) => {
   });
 };
 
+const formatMonthOrdinal = (n) => {
+  // Handle the 'Disabled' case for 0 or any negative number
+  if (n <= 0) {
+    return "Disabled";
+  }
+
+  const lastTwoDigits = n % 100;
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 13) {
+    return `${n}th Month`;
+  }
+
+  const lastDigit = n % 10;
+  switch (lastDigit) {
+    case 1:
+      return `${n}st Month`;
+    case 2:
+      return `${n}nd Month`;
+    case 3:
+      return `${n}rd Month`;
+    default:
+      return `${n}th Month`;
+  }
+};
+
+function unformatForEditing(event) {
+  const visibleInput = event.target;
+
+  // Only change the value if it's not already a plain number
+  if (isNaN(visibleInput.value)) {
+    const cleanValue = visibleInput.value.replace(/[^0-9.-]/g, "");
+    visibleInput.value = cleanValue;
+  }
+
+  // Switch to number type for better input experience (e.g., number pad on mobile)
+  visibleInput.type = "number";
+}
+
 // --- Console Output Override ---
 const originalConsoleLog = console.log;
 console.log = function (message, onClickCallback) {
@@ -54,6 +91,8 @@ console.log = function (message, onClickCallback) {
 // --- Input Formatting and Syncing Logic ---
 function updateAndFormatInput(event) {
   const visibleInput = event.target;
+  visibleInput.type = "text";
+
   const hiddenInput = document.getElementById(
     visibleInput.id.replace("-visible", "")
   );
@@ -81,8 +120,7 @@ function updateAndFormatInput(event) {
         formattedValue = `1:${numberValue}`;
         break;
       case "expenses-begin-month-visible":
-        formattedValue =
-          numberValue === -1 ? "Disabled" : `${numberValue} Month`;
+        formattedValue = formatMonthOrdinal(numberValue);
         break;
       case "timeline-visible":
         formattedValue =
@@ -99,39 +137,42 @@ function updateAndFormatInput(event) {
 
 inputsToFormat.forEach((input) => {
   input.addEventListener("blur", updateAndFormatInput);
+  input.addEventListener("focus", unformatForEditing);
 });
 
 // --- Data Gathering & Validation ---
 function getAndValidateInputs() {
   const params = {
-    // Use the OR || operator to assign a default if the input is empty
+    // The '??' operator correctly handles 0 as a valid input,
+    // whereas the old '||' operator would incorrectly replace 0 with the default.
     startingBalance:
-      parseFloat(document.getElementById("account-balance").value) || 25000,
+      parseFloat(document.getElementById("account-balance").value) ?? 25000,
     riskPerTrade:
       (parseFloat(
         document.getElementById("account-balance-risked-percent").value
-      ) || 2) / 100,
+      ) ?? 2) / 100,
     tradesPerWeek:
-      parseInt(document.getElementById("trades-per-week").value, 10) || 10,
+      parseInt(document.getElementById("trades-per-week").value, 10) ?? 10,
     winRate:
-      (parseFloat(document.getElementById("win-rate").value) || 50) / 100,
+      (parseFloat(document.getElementById("win-rate").value) ?? 50) / 100,
     riskToReward:
-      parseFloat(document.getElementById("risk-to-reward").value) || 2,
+      parseFloat(document.getElementById("risk-to-reward").value) ?? 2,
     expensesBegin:
-      parseInt(document.getElementById("expenses-begin-month").value, 10) || 4,
+      parseInt(document.getElementById("expenses-begin-month").value, 10) ?? 4,
     totalMonthlyExpenses:
-      parseFloat(document.getElementById("total-monthly-expenses").value) ||
+      parseFloat(document.getElementById("total-monthly-expenses").value) ??
       4000,
     simulationTimeline:
-      parseInt(document.getElementById("timeline").value, 10) || 1,
+      parseInt(document.getElementById("timeline").value, 10) ?? 1,
     simulationRuns:
-      parseInt(document.getElementById("simulation-runs").value, 10) || 1000,
+      parseInt(document.getElementById("simulation-runs").value, 10) ?? 1000,
     myFeePercentage:
-      (parseFloat(document.getElementById("estimated-fee-percent").value) ||
+      (parseFloat(document.getElementById("estimated-fee-percent").value) ??
         3) / 100,
   };
 
-  // This loop now serves as a final check, though defaults should prevent NaNs
+  // This loop now serves as a final check.
+  // Using '??' makes it much less likely for NaN to appear here.
   for (const key in params) {
     if (isNaN(params[key])) {
       return "Error: An invalid non-numeric value was entered in one of the fields.";
