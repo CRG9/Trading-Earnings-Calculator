@@ -154,37 +154,27 @@ inputsToFormat.forEach((input) => {
 
 // --- Data Gathering & Validation ---
 function getAndValidateInputs() {
-  const params = {
-    // The '??' operator correctly handles 0 as a valid input,
-    // whereas the old '||' operator would incorrectly replace 0 with the default.
-    startingBalance:
-      parseFloat(document.getElementById("account-balance").value) ?? 25000,
-    riskPerTrade:
-      (parseFloat(
-        document.getElementById("account-balance-risked-percent").value
-      ) ?? 2) / 100,
-    tradesPerWeek:
-      parseInt(document.getElementById("trades-per-week").value, 10) ?? 10,
-    winRate:
-      (parseFloat(document.getElementById("win-rate").value) ?? 50) / 100,
-    riskToReward:
-      parseFloat(document.getElementById("risk-to-reward").value) ?? 2,
-    expensesBegin:
-      parseInt(document.getElementById("expenses-begin-month").value, 10) ?? 4,
-    totalMonthlyExpenses:
-      parseFloat(document.getElementById("total-monthly-expenses").value) ??
-      4000,
-    simulationTimeline:
-      parseInt(document.getElementById("timeline").value, 10) ?? 1,
-    simulationRuns:
-      parseInt(document.getElementById("simulation-runs").value, 10) ?? 1000,
-    myFeePercentage:
-      (parseFloat(document.getElementById("estimated-fee-percent").value) ??
-        3) / 100,
+  // Helper function to parse and apply defaults correctly
+  const parseOrDefault = (elementId, defaultValue, isFloat = true) => {
+    const element = document.getElementById(elementId);
+    const value = isFloat ? parseFloat(element.value) : parseInt(element.value, 10);
+    return isNaN(value) ? defaultValue : value;
   };
 
-  // This loop now serves as a final check.
-  // Using '??' makes it much less likely for NaN to appear here.
+  const params = {
+    startingBalance: parseOrDefault("account-balance", 25000),
+    riskPerTrade: parseOrDefault("account-balance-risked-percent", 2) / 100,
+    tradesPerWeek: parseOrDefault("trades-per-week", 10, false),
+    winRate: parseOrDefault("win-rate", 50) / 100,
+    riskToReward: parseOrDefault("risk-to-reward", 2),
+    expensesBegin: parseOrDefault("expenses-begin-month", 4, false),
+    totalMonthlyExpenses: parseOrDefault("total-monthly-expenses", 4000),
+    simulationTimeline: parseOrDefault("timeline", 1, false),
+    simulationRuns: parseOrDefault("simulation-runs", 1000, false),
+    myFeePercentage: parseOrDefault("estimated-fee-percent", 3) / 100,
+  };
+
+  // This final check remains as a safeguard
   for (const key in params) {
     if (isNaN(params[key])) {
       return "Error: An invalid non-numeric value was entered in one of the fields.";
