@@ -275,7 +275,7 @@ async function runSimulation() {
         monthData.grossProfit
       )}`;
       const expenseText = `| Expenses: $${formatConsoleCurrency(
-        monthData.expensesDecducted
+        monthData.expensesDeducted
       )}`;
       const netText = `| Net Profit: $${formatConsoleCurrency(
         monthData.netProfit
