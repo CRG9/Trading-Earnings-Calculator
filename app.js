@@ -234,26 +234,31 @@ async function runSimulation() {
 
   const simulationResults = runMonteCarlo(params, params.simulationRuns);
 
-  const survivingRuns = simulationResults.filter((run) => run.survived);
-  survivingRuns.sort((a, b) => a.finalBalance - b.finalBalance);
-  const survivalRate = (survivingRuns.length / params.simulationRuns) * 100;
-  let averageBalance = 0;
-  let medianScenario, bestCaseScenario, worstCaseScenario, averageScenario;
-  if (survivingRuns.length > 0) {
-    const finalBalances = survivingRuns.map((run) => run.finalBalance);
-    averageBalance =
-      finalBalances.reduce((sum, val) => sum + val, 0) / finalBalances.length;
-    worstCaseScenario = survivingRuns[0];
-    bestCaseScenario = survivingRuns[survivingRuns.length - 1];
-    medianScenario = survivingRuns[Math.floor(survivingRuns.length / 2)];
-    averageScenario = survivingRuns.reduce((prev, curr) =>
-      Math.abs(curr.finalBalance - averageBalance) <
-      Math.abs(prev.finalBalance - averageBalance)
-        ? curr
-        : prev
-    );
-  }
+  // --- CALCULATIONS ON ALL RUNS (INCLUDING FAILURES) ---
+  // Sort all results by final balance to find median, best, and worst of ALL outcomes.
+  simulationResults.sort((a, b) => a.finalBalance - b.finalBalance);
 
+  const allFinalBalances = simulationResults.map((run) => run.finalBalance);
+  const totalAverageBalance =
+    allFinalBalances.reduce((sum, val) => sum + val, 0) / allFinalBalances.length;
+  
+  // Worst case is now the first item of the comprehensive, sorted list (often $0).
+  const worstCaseOfAll = simulationResults[0]; 
+  const bestCaseOfAll = simulationResults[simulationResults.length - 1];
+  const medianOfAll = simulationResults[Math.floor(simulationResults.length / 2)];
+  
+  // Find the scenario closest to the new, comprehensive average.
+  const averageScenarioOfAll = simulationResults.reduce((prev, curr) =>
+    Math.abs(curr.finalBalance - totalAverageBalance) <
+    Math.abs(prev.finalBalance - totalAverageBalance)
+      ? curr
+      : prev
+  );
+
+  // --- CALCULATIONS FOR SURVIVING RUNS (for survival rate) ---
+  const survivingRuns = simulationResults.filter((run) => run.survived);
+  const survivalRate = (survivingRuns.length / params.simulationRuns) * 100;
+  
   // --- Helper function for displaying drill-down details ---
   async function displayMonthlyBreakdown(title, monthlyData) {
     if (isViewTransitioning) return;
@@ -270,7 +275,7 @@ async function runSimulation() {
         monthData.grossProfit
       )}`;
       const expenseText = `| Expenses: $${formatConsoleCurrency(
-        monthData.expensesDeducted
+        monthData.expensesDecducted
       )}`;
       const netText = `| Net Profit: $${formatConsoleCurrency(
         monthData.netProfit
@@ -343,52 +348,54 @@ async function runSimulation() {
   );
   await delay(shortDelay);
 
-  if (averageScenario) {
+  // --- UPDATE CONSOLE LOGS TO USE THE NEW COMPREHENSIVE VARIABLES ---
+  if (averageScenarioOfAll) {
     console.log(
-      `Average Final Balance: ${formatVisibleCurrency(averageBalance)}`,
+      `Average Final Balance (all runs): ${formatVisibleCurrency(totalAverageBalance)}`,
       () =>
         displayMonthlyBreakdown(
           "Details for Average Scenario",
-          averageScenario.monthlyData
+          averageScenarioOfAll.monthlyData
         )
     );
     await delay(shortDelay);
   }
-  if (medianScenario) {
+  if (medianOfAll) {
     console.log(
-      `Median Final Balance: ${formatVisibleCurrency(
-        medianScenario.finalBalance
+      `Median Final Balance (all runs): ${formatVisibleCurrency(
+        medianOfAll.finalBalance
       )} (50% of outcomes were better, 50% were worse)`,
       () =>
         displayMonthlyBreakdown(
           "Details for Median Scenario",
-          medianScenario.monthlyData
+          medianOfAll.monthlyData
         )
     );
     await delay(shortDelay);
   }
-  if (bestCaseScenario) {
+  if (bestCaseOfAll) {
     console.log(
       `Best Case Scenario: ${formatVisibleCurrency(
-        bestCaseScenario.finalBalance
+        bestCaseOfAll.finalBalance
       )}`,
       () =>
         displayMonthlyBreakdown(
           "Details for Best Case Scenario",
-          bestCaseScenario.monthlyData
+          bestCaseOfAll.monthlyData
         )
     );
     await delay(shortDelay);
   }
-  if (worstCaseScenario) {
+  if (worstCaseOfAll) {
+    // This will now correctly show the worst case, which is often a balance of $0
     console.log(
-      `Worst Case (surviving): ${formatVisibleCurrency(
-        worstCaseScenario.finalBalance
+      `Worst Case Scenario: ${formatVisibleCurrency(
+        worstCaseOfAll.finalBalance
       )}`,
       () =>
         displayMonthlyBreakdown(
           "Details for Worst Case Scenario",
-          worstCaseScenario.monthlyData
+          worstCaseOfAll.monthlyData
         )
     );
     await delay(longDelay);
