@@ -173,6 +173,11 @@ header {
   border-radius: 10px;
 }
 
+.clickable.printing {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 @media only screen and (max-width: 768px) {
   .main-content {
     grid-template-columns: 1fr;

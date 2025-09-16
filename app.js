@@ -10,6 +10,7 @@ const inputsToFormat = document.querySelectorAll(
 
 // --- A global variable to direct console output ---
 let activeView;
+let isSummaryPrinting = false;
 
 // --- DELAY HELPER ---
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
@@ -76,7 +77,18 @@ console.log = function (message, onClickCallback) {
 
   if (onClickCallback && typeof onClickCallback === "function") {
     p.classList.add("clickable");
-    p.addEventListener("click", onClickCallback);
+
+    // If the summary is printing, add a class for visual feedback
+    if (isSummaryPrinting) {
+      p.classList.add("printing");
+    }
+
+    // Only allow the click to work if printing is finished
+    p.addEventListener("click", () => {
+      if (!isSummaryPrinting) {
+        onClickCallback();
+      }
+    });
   }
 
   if (activeView) {
@@ -321,13 +333,16 @@ async function runSimulation() {
   }
 
   console.log("\n--- Monte Carlo Simulation Results ---");
+  isSummaryPrinting = true; // LOCK: Prevent clicks while printing
   await delay(longDelay);
+
   console.log(
     `Survival Rate: ${survivalRate.toFixed(
       2
     )}% of simulations were profitable or solvent.`
   );
   await delay(shortDelay);
+
   if (averageScenario) {
     console.log(
       `Average Final Balance: ${formatVisibleCurrency(averageBalance)}`,
@@ -378,6 +393,14 @@ async function runSimulation() {
     );
     await delay(longDelay);
   }
+
+  // UNLOCK: Clicks are now enabled
+  isSummaryPrinting = false; 
+  // Update visuals to show the links are active
+  outputDiv.querySelectorAll('.clickable.printing').forEach(el => {
+    el.classList.remove('printing');
+  });
+
   console.log("\n--- Simulation Complete ---");
   simulationButton.disabled = false;
 }
