@@ -29,11 +29,11 @@
             <h2>Simulation Parameters</h2>
             <form id="simulation-form">
               <label>Simulation Runs (Number of Scenarios Compiled):</label>
-              <input id="simulation-runs-visible" type="text" placeholder="1,000 Scenarios" />
+              <input id="simulation-runs-visible" type="text" placeholder="100,000 Scenarios" />
               <input id="simulation-runs" type="hidden" />
 
               <label>Simulation Timeline (Months):</label>
-              <input id="timeline-visible" type="text" placeholder="1 Month" />
+              <input id="timeline-visible" type="text" placeholder="12 Months" />
               <input id="timeline" type="hidden" />
 
               <label>Initial Account Balance (USD):</label>
@@ -49,7 +49,7 @@
                 id="trades-per-week"
                 type="number"
                 min="1"
-                placeholder="10"
+                placeholder="5"
                 required
               />
 
@@ -85,7 +85,7 @@
               <input
                 id="total-monthly-expenses-visible"
                 type="text"
-                placeholder="$4,000 USD"
+                placeholder="$0 USD"
               />
               <input id="total-monthly-expenses" type="hidden" />
 
@@ -94,7 +94,7 @@
                 id="expenses-begin-month-visible"
                 type="number"
                 min="0"
-                placeholder="4"
+                placeholder="0"
                 required
               />
               <input id="expenses-begin-month" type="hidden" />
