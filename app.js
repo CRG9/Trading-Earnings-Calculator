@@ -31,84 +31,60 @@ const formatVisibleCurrency = (number) => {
 };
 
 const formatMonthOrdinal = (n) => {
-  // Handle the 'Disabled' case for 0 or any negative number
-  if (n <= 0) {
-    return "Disabled";
-  }
-
+  if (n <= 0) return "Disabled";
   const lastTwoDigits = n % 100;
-  if (lastTwoDigits >= 11 && lastTwoDigits <= 13) {
-    return `${n}th Month`;
-  }
-
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 13) return `${n}th Month`;
   const lastDigit = n % 10;
   switch (lastDigit) {
-    case 1:
-      return `${n}st Month`;
-    case 2:
-      return `${n}nd Month`;
-    case 3:
-      return `${n}rd Month`;
-    default:
-      return `${n}th Month`;
+    case 1: return `${n}st Month`;
+    case 2: return `${n}nd Month`;
+    case 3: return `${n}rd Month`;
+    default: return `${n}th Month`;
   }
 };
 
 function unformatForEditing(event) {
   const visibleInput = event.target;
-
-  // Only change the value if it's not already a plain number
   if (isNaN(visibleInput.value)) {
-    const cleanValue = visibleInput.value.replace(/[^0-9.-]/g, "");
-    visibleInput.value = cleanValue;
+    visibleInput.value = visibleInput.value.replace(/[^0-9.-]/g, "");
   }
-
-  // Switch to number type for better input experience (e.g., number pad on mobile)
   visibleInput.type = "number";
 }
 
 // --- Console Output Override ---
 const originalConsoleLog = console.log;
 console.log = function (message, onClickCallback) {
+  // This still logs to the browser's developer console for debugging
   originalConsoleLog(message);
+
   const p = document.createElement("p");
-  p.textContent = message;
   p.style.padding = "0.25rem";
 
-  if (onClickCallback && typeof onClickCallback === "function") {
+  // If the message contains HTML tags, render it as HTML. Otherwise, as plain text.
+  if (typeof message === 'string' && /<[a-z][\s\S]*>/i.test(message)) {
+    p.innerHTML = message;
+  } else {
+    p.textContent = message;
+  }
+
+  if (onClickCallback && typeof onClickCallback === 'function') {
     p.classList.add("clickable");
-
-    // If the summary is printing, add a class for visual feedback
-    if (isSummaryPrinting) {
-      p.classList.add("printing");
-    }
-
-    // Only allow the click to work if printing is finished
+    if (isSummaryPrinting) p.classList.add("printing");
     p.addEventListener("click", () => {
-      if (!isSummaryPrinting) {
-        onClickCallback();
-      }
+      if (!isSummaryPrinting) onClickCallback();
     });
   }
 
-  if (activeView) {
-    activeView.appendChild(p);
-  } else {
-    outputDiv.appendChild(p);
-  }
-
+  (activeView || outputDiv).appendChild(p);
   outputDiv.scrollTop = outputDiv.scrollHeight;
 };
+
 
 // --- Input Formatting and Syncing Logic ---
 function updateAndFormatInput(event) {
   const visibleInput = event.target;
   visibleInput.type = "text";
-
-  const hiddenInput = document.getElementById(
-    visibleInput.id.replace("-visible", "")
-  );
-
+  const hiddenInput = document.getElementById(visibleInput.id.replace("-visible", ""));
   if (!hiddenInput) return;
 
   const cleanValue = visibleInput.value.replace(/[^0-9.-]/g, "");
@@ -135,12 +111,10 @@ function updateAndFormatInput(event) {
         formattedValue = formatMonthOrdinal(numberValue);
         break;
       case "timeline-visible":
-        formattedValue =
-          numberValue === 1 ? "1 Month" : `${numberValue} Months`;
+        formattedValue = numberValue === 1 ? "1 Month" : `${numberValue} Months`;
         break;
       case "simulation-runs-visible":
-        formattedValue =
-          numberValue === 1 ? "1 Run" : `${numberValue.toLocaleString()} Runs`;
+        formattedValue = numberValue === 1 ? "1 Run" : `${numberValue.toLocaleString()} Runs`;
         break;
     }
     visibleInput.value = formattedValue;
@@ -154,39 +128,26 @@ inputsToFormat.forEach((input) => {
 
 // --- Data Gathering & Validation ---
 function getAndValidateInputs() {
-  // Helper function to parse and apply defaults correctly
-  const parseOrDefault = (elementId, defaultValue, isFloat = true) => {
-    const element = document.getElementById(elementId);
-    const value = isFloat
-      ? parseFloat(element.value)
-      : parseInt(element.value, 10);
-    return isNaN(value) ? defaultValue : value;
+  const parseOrDefault = (id, def, isFloat = true) => {
+    const val = (isFloat ? parseFloat : parseInt)(document.getElementById(id).value, 10);
+    return isNaN(val) ? def : val;
   };
-
   const params = {
     startingBalance: parseOrDefault("account-balance", 25000),
     riskPerTrade: parseOrDefault("account-balance-risked-percent", 2) / 100,
-    tradesPerWeek: parseOrDefault("trades-per-week", 10, false),
+    tradesPerWeek: parseOrDefault("trades-per-week", 5, false),
     winRate: parseOrDefault("win-rate", 50) / 100,
     riskToReward: parseOrDefault("risk-to-reward", 2),
-    expensesBegin: parseOrDefault("expenses-begin-month", 4, false),
+    expensesBegin: parseOrDefault("expenses-begin-month", 0, false),
     totalMonthlyExpenses: parseOrDefault("total-monthly-expenses", 4000),
-    simulationTimeline: parseOrDefault("timeline", 1, false),
-    simulationRuns: parseOrDefault("simulation-runs", 1000, false),
+    simulationTimeline: parseOrDefault("timeline", 12, false),
+    simulationRuns: parseOrDefault("simulation-runs", 100000, false),
     myFeePercentage: parseOrDefault("estimated-fee-percent", 3) / 100,
   };
-
-  // This final check remains as a safeguard
   for (const key in params) {
-    if (isNaN(params[key])) {
-      return "Error: An invalid non-numeric value was entered in one of the fields.";
-    }
+    if (isNaN(params[key])) return "Error: Invalid non-numeric value entered.";
   }
-
-  if (params.simulationRuns > 100000) {
-    return "Error: Number of simulation runs cannot exceed 100,000.";
-  }
-
+  if (params.simulationRuns > 100000) return "Error: Runs cannot exceed 100,000.";
   return params;
 }
 
@@ -219,67 +180,58 @@ async function runSimulation() {
 
   console.log("\n--- Running Monte Carlo Simulation ---");
   await delay(shortDelay);
-  console.log(
-    `Simulating ${params.simulationRuns.toLocaleString()} possible futures...`
-  );
+  console.log(`Simulating ${params.simulationRuns.toLocaleString()} possible futures...`);
+  console.log("");
   await delay(longDelay);
 
   const simulationResults = runMonteCarlo(params, params.simulationRuns);
 
-  // --- CALCULATIONS ON ALL RUNS (INCLUDING FAILURES) ---
-  // Sort all results by final balance to find median, best, and worst of ALL outcomes.
+  // --- CALCULATIONS ---
   simulationResults.sort((a, b) => a.finalBalance - b.finalBalance);
 
-  const allFinalBalances = simulationResults.map((run) => run.finalBalance);
-  const totalAverageBalance =
-    allFinalBalances.reduce((sum, val) => sum + val, 0) /
-    allFinalBalances.length;
-
-  // Worst case is now the first item of the comprehensive, sorted list (often $0).
+  const totalAverageBalance = simulationResults.reduce((sum, run) => sum + run.finalBalance, 0) / simulationResults.length;
   const worstCaseOfAll = simulationResults[0];
   const bestCaseOfAll = simulationResults[simulationResults.length - 1];
-  const medianOfAll =
-    simulationResults[Math.floor(simulationResults.length / 2)];
-
-  // Find the scenario closest to the new, comprehensive average.
+  const medianOfAll = simulationResults[Math.floor(simulationResults.length / 2)];
   const averageScenarioOfAll = simulationResults.reduce((prev, curr) =>
-    Math.abs(curr.finalBalance - totalAverageBalance) <
-    Math.abs(prev.finalBalance - totalAverageBalance)
-      ? curr
-      : prev
+    Math.abs(curr.finalBalance - totalAverageBalance) < Math.abs(prev.finalBalance - totalAverageBalance) ? curr : prev
   );
-
-  // --- CALCULATIONS FOR SURVIVING RUNS (for survival rate) ---
   const survivingRuns = simulationResults.filter((run) => run.survived);
   const survivalRate = (survivingRuns.length / params.simulationRuns) * 100;
+  const totalRuinCount = simulationResults.reduce((count, run) => (run.finalBalance <= 0 ? count + 1 : count), 0);
+  const profitableCount = simulationResults.filter(run => run.finalBalance > params.startingBalance).length;
+  const losingCount = simulationResults.filter(run => run.finalBalance > 0 && run.finalBalance < params.startingBalance).length;
 
-  // Count up the number of simulations that went to $0 or less (total ruin).
-  const totalRuinCount = simulationResults.reduce(
-    (count, run) => (run.finalBalance <= 0 ? count + 1 : count),
-    0
-  );
+  // --- CALCULATE HISTOGRAM DISTRIBUTION ---
+  const buckets = [];
+  let maxPercentage = 0;
+  const totalRuns = simulationResults.length;
+  if (totalRuns > 0) {
+    const numBuckets = 10;
+    const minBalance = worstCaseOfAll.finalBalance;
+    const maxBalance = bestCaseOfAll.finalBalance;
+    const range = maxBalance - minBalance;
 
-  // Count up the number of simulations that finished above the initial balance.
-  // This assumes 'params.startingBalance' holds the starting value.
-  const profitableCount = simulationResults.reduce(
-    (count, run) =>
-      run.finalBalance > params.startingBalance ? count + 1 : count,
-    0
-  );
-
-  // Find the mode (most frequent final balance) and its frequency.
-  // This uses the 'allFinalBalances' array calculated in the previous snippet.
-  const balanceFrequencies = allFinalBalances.reduce((freqMap, balance) => {
-    freqMap.set(balance, (freqMap.get(balance) || 0) + 1);
-    return freqMap;
-  }, new Map());
-
-  let modeFinalBalance = null;
-  let modeFrequency = 0;
-  for (const [balance, count] of balanceFrequencies.entries()) {
-    if (count > modeFrequency) {
-      modeFrequency = count;
-      modeFinalBalance = balance;
+    if (range > 0) {
+      const bucketSize = range / numBuckets;
+      for (let i = 0; i < numBuckets; i++) {
+        buckets.push({
+          min: minBalance + i * bucketSize,
+          max: minBalance + (i + 1) * bucketSize,
+          count: 0,
+        });
+      }
+      for (const run of simulationResults) {
+        const bucketIndex = Math.min(numBuckets - 1, Math.floor((run.finalBalance - minBalance) / bucketSize));
+        if (buckets[bucketIndex]) buckets[bucketIndex].count++;
+      }
+      // Calculate percentages and find the max
+      for (const bucket of buckets) {
+        bucket.percentage = (bucket.count / totalRuns) * 100;
+        if (bucket.percentage > maxPercentage) {
+          maxPercentage = bucket.percentage;
+        }
+      }
     }
   }
 
@@ -287,63 +239,28 @@ async function runSimulation() {
   async function displayMonthlyBreakdown(title, monthlyData) {
     if (isViewTransitioning) return;
     isViewTransitioning = true;
-
     detailsView.innerHTML = "";
     activeView = detailsView;
-
     console.log(`\n--- ${title} ---`);
     await delay(longDelay);
-
     for (const [index, monthData] of monthlyData.entries()) {
-      const grossText = `Trade Profit: $${formatConsoleCurrency(
-        monthData.grossProfit
-      )}`;
-      const expenseText = `| Expenses: $${formatConsoleCurrency(
-        monthData.expensesDeducted
-      )}`;
-      const netText = `| Net Profit: $${formatConsoleCurrency(
-        monthData.netProfit
-      )}`;
-      const balanceText = `| Ending Balance: $${formatConsoleCurrency(
-        monthData.endBalance
-      )}`;
-      console.log(
-        `Month ${index + 1}: ${grossText.padEnd(25)} ${expenseText.padEnd(
-          25
-        )} ${netText.padEnd(25)} ${balanceText}`
-      );
+      const grossText = `Trade Profit: $${formatConsoleCurrency(monthData.grossProfit)}`;
+      const expenseText = `| Expenses: $${formatConsoleCurrency(monthData.expensesDeducted)}`;
+      const netText = `| Net Profit: $${formatConsoleCurrency(monthData.netProfit)}`;
+      const balanceText = `| Ending Balance: $${formatConsoleCurrency(monthData.endBalance)}`;
+      console.log(`Month ${index + 1}: ${grossText.padEnd(25)} ${expenseText.padEnd(25)} ${netText.padEnd(25)} ${balanceText}`);
       await delay(100);
     }
-
-    // --- NEW: Calculate and display the summary for this specific scenario ---
     console.log("\n--- Scenario Summary ---");
     await delay(longDelay);
-
-    const totalGrossProfit = monthlyData.reduce(
-      (sum, month) => sum + month.grossProfit,
-      0
-    );
-    const totalExpenses = monthlyData.reduce(
-      (sum, month) => sum + month.expensesDeducted,
-      0
-    );
-    const finalBalance =
-      monthlyData.length > 0
-        ? monthlyData[monthlyData.length - 1].endBalance
-        : 0;
-
-    console.log(
-      `Total Trading Profits: $${formatConsoleCurrency(totalGrossProfit)}`
-    );
+    const totalGrossProfit = monthlyData.reduce((sum, month) => sum + month.grossProfit, 0);
+    const totalExpenses = monthlyData.reduce((sum, month) => sum + month.expensesDeducted, 0);
+    const finalBalance = monthlyData.length > 0 ? monthlyData[monthlyData.length - 1].endBalance : 0;
+    console.log(`Total Trading Profits: $${formatConsoleCurrency(totalGrossProfit)}`);
     await delay(shortDelay);
-    console.log(
-      `Total Deducted Expenses: $${formatConsoleCurrency(totalExpenses)}`
-    );
+    console.log(`Total Deducted Expenses: $${formatConsoleCurrency(totalExpenses)}`);
     await delay(shortDelay);
-    console.log(
-      `Final Account Balance: $${formatConsoleCurrency(finalBalance)}`
-    );
-
+    console.log(`Final Account Balance: $${formatConsoleCurrency(finalBalance)}`);
     await delay(longDelay);
     console.log("\n« Return to Summary", () => {
       if (isViewTransitioning) return;
@@ -351,92 +268,86 @@ async function runSimulation() {
       detailsView.style.display = "none";
       summaryView.style.display = "block";
       activeView = summaryView;
-      setTimeout(() => {
-        isViewTransitioning = false;
-      }, 100);
+      setTimeout(() => { isViewTransitioning = false; }, 100);
     });
-
     summaryView.style.display = "none";
     detailsView.style.display = "block";
     isViewTransitioning = false;
   }
 
   console.log("\n--- Monte Carlo Simulation Results ---");
-  isSummaryPrinting = true; // LOCK: Prevent clicks while printing
+  isSummaryPrinting = true;
   await delay(longDelay);
 
-  console.log(
-    `Survival Rate: ${survivalRate.toFixed(2)}% of simulations (${survivingRuns.length} runs) were solvent.`
-  );
+  console.log(`Survival Rate: ${survivalRate.toFixed(2)}% (${survivingRuns.length.toLocaleString()} runs) were solvent.`);
   await delay(shortDelay);
 
-  console.log(
-    `Total Ruined Simulations: ${((totalRuinCount / params.simulationRuns)*100).toFixed(2)}% of simulations (${totalRuinCount} runs) went to $0 or less.`);
-  await delay(shortDelay);  
+  console.log(`Profitable Simulations: ${((profitableCount / params.simulationRuns) * 100).toFixed(2)}% (${profitableCount.toLocaleString()} runs) ended above the initial balance.`);
+  await delay(shortDelay);
 
-  // --- UPDATE CONSOLE LOGS TO USE THE NEW COMPREHENSIVE VARIABLES ---
+  console.log(`Simulations with a Loss: ${((losingCount / params.simulationRuns) * 100).toFixed(2)}% (${losingCount.toLocaleString()} runs) ended below the initial balance but were not ruined.`);
+  await delay(shortDelay);
+
+
+  console.log(`Total Ruined Simulations: ${((totalRuinCount / params.simulationRuns) * 100).toFixed(2)}% of simulations (${totalRuinCount} runs) went to $0 or less.`);
+  await delay(shortDelay);
+
+  // --- DISPLAY OUTCOME DISTRIBUTION ---
+  if (buckets.length > 0) {
+    console.log("");
+    console.log("\n--- Outcome Distribution ---");
+    await delay(longDelay);
+
+    // --- [NEW] Sort buckets from highest percentage to lowest ---
+    buckets.sort((a, b) => b.percentage - a.percentage);
+
+    for (const bucket of buckets) {
+      if (bucket.count > 0) {
+        let color;
+        let fontWeight = 'normal';
+
+        if (bucket.percentage >= maxPercentage * 0.66) {
+          color = '#28a745'; // Green
+          fontWeight = 'bold';
+        } else if (bucket.percentage >= maxPercentage * 0.33) {
+          color = '#ffc107'; // Yellow
+        } else {
+          color = '#dc3545'; // Red
+        }
+
+        const htmlMessage = `$${formatConsoleCurrency(bucket.min)} - $${formatConsoleCurrency(bucket.max)}: ${bucket.count.toLocaleString()} Simulations (<span style="color: ${color}; font-weight: ${fontWeight};">${bucket.percentage.toFixed(2)}%</span>)`;
+        
+        console.log(htmlMessage);
+        await delay(shortDelay);
+      }
+    }
+  }
+
+  // --- CLICKABLE SCENARIO DETAILS ---
+  console.log("");
+  await delay(longDelay);
+
   if (averageScenarioOfAll) {
-    console.log(
-      `Average Final Balance (all runs): ${formatVisibleCurrency(
-        totalAverageBalance
-      )}`,
-      () =>
-        displayMonthlyBreakdown(
-          "Details for Average Scenario",
-          averageScenarioOfAll.monthlyData
-        )
-    );
+    console.log(`\nAverage Final Balance (all runs): ${formatVisibleCurrency(totalAverageBalance)}`, () => displayMonthlyBreakdown("Details for Average Scenario", averageScenarioOfAll.monthlyData));
     await delay(shortDelay);
   }
   if (medianOfAll) {
-    console.log(
-      `Median Final Balance (all runs): ${formatVisibleCurrency(
-        medianOfAll.finalBalance
-      )} (50% of outcomes were better, 50% were worse)`,
-      () =>
-        displayMonthlyBreakdown(
-          "Details for Median Scenario",
-          medianOfAll.monthlyData
-        )
-    );
+    console.log(`Median Final Balance (all runs): ${formatVisibleCurrency(medianOfAll.finalBalance)} (50% of outcomes were better, 50% were worse)`, () => displayMonthlyBreakdown("Details for Median Scenario", medianOfAll.monthlyData));
     await delay(shortDelay);
   }
-
   if (bestCaseOfAll) {
-    console.log(
-      `Best Case Scenario: ${formatVisibleCurrency(
-        bestCaseOfAll.finalBalance
-      )}`,
-      () =>
-        displayMonthlyBreakdown(
-          "Details for Best Case Scenario",
-          bestCaseOfAll.monthlyData
-        )
-    );
+    console.log(`Best Case Scenario: ${formatVisibleCurrency(bestCaseOfAll.finalBalance)}`, () => displayMonthlyBreakdown("Details for Best Case Scenario", bestCaseOfAll.monthlyData));
     await delay(shortDelay);
   }
   if (worstCaseOfAll) {
-    // This will now correctly show the worst case, which is often a balance of $0
-    console.log(
-      `Worst Case Scenario: ${formatVisibleCurrency(
-        worstCaseOfAll.finalBalance
-      )}`,
-      () =>
-        displayMonthlyBreakdown(
-          "Details for Worst Case Scenario",
-          worstCaseOfAll.monthlyData
-        )
-    );
+    console.log(`Worst Case Scenario: ${formatVisibleCurrency(worstCaseOfAll.finalBalance)}`, () => displayMonthlyBreakdown("Details for Worst Case Scenario", worstCaseOfAll.monthlyData));
+    await delay(longDelay);
+    console.log("");
     await delay(longDelay);
   }
 
-  // UNLOCK: Clicks are now enabled
   isSummaryPrinting = false;
-  // Update visuals to show the links are active
-  outputDiv.querySelectorAll(".clickable.printing").forEach((el) => {
-    el.classList.remove("printing");
-  });
-
+  outputDiv.querySelectorAll(".clickable.printing").forEach((el) => el.classList.remove("printing"));
   console.log("\n--- Simulation Complete ---");
   simulationButton.disabled = false;
 }
@@ -446,7 +357,6 @@ async function runSimulation() {
   const initialView = document.createElement("div");
   outputDiv.appendChild(initialView);
   activeView = initialView;
-
   console.log("\nBooting Up Monte Carlo Simulator...");
   await delay(1000);
   console.log("Please enter your inputs then press the button.");
