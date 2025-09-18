@@ -202,37 +202,61 @@ async function runSimulation() {
   const profitableCount = simulationResults.filter(run => run.finalBalance > params.startingBalance).length;
   const losingCount = simulationResults.filter(run => run.finalBalance > 0 && run.finalBalance < params.startingBalance).length;
 
-  // --- CALCULATE HISTOGRAM DISTRIBUTION ---
+  // --- [NEW] ADAPTIVE HISTOGRAM CALCULATION ---
   const buckets = [];
   const totalRuns = simulationResults.length;
-  if (totalRuns > 0) {
-    const numBuckets = 10;
-    const minBalance = worstCaseOfAll.finalBalance;
-    const maxBalance = bestCaseOfAll.finalBalance;
-    const range = maxBalance - minBalance;
+  if (totalRuns > 10) { // Only run this logic if there's enough data
+    const cutoffPercentile = 0.98;
+    const numCoreBuckets = 9;
 
-    if (range > 0) {
-      const bucketSize = range / numBuckets;
-      for (let i = 0; i < numBuckets; i++) {
+    const cutoffIndex = Math.floor(totalRuns * cutoffPercentile);
+    const maxBalanceForBuckets = simulationResults[cutoffIndex].finalBalance;
+    const minBalance = worstCaseOfAll.finalBalance;
+    
+    const coreRange = maxBalanceForBuckets - minBalance;
+
+    // Initialize core buckets and one for outliers
+    for (let i = 0; i < numCoreBuckets; i++) {
+        const bucketMin = minBalance + i * (coreRange / numCoreBuckets);
         buckets.push({
-          min: minBalance + i * bucketSize,
-          max: minBalance + (i + 1) * bucketSize,
-          count: 0,
-          runs: [], // <-- Store the actual runs here
+            min: bucketMin,
+            max: bucketMin + (coreRange / numCoreBuckets),
+            count: 0,
+            runs: [],
         });
-      }
-      for (const run of simulationResults) {
-        const bucketIndex = Math.min(numBuckets - 1, Math.floor((run.finalBalance - minBalance) / bucketSize));
-        if (buckets[bucketIndex]) {
-            buckets[bucketIndex].count++;
-            buckets[bucketIndex].runs.push(run); // <-- Add run to the bucket
+    }
+    const outlierBucket = {
+        min: maxBalanceForBuckets,
+        max: bestCaseOfAll.finalBalance,
+        count: 0,
+        runs: [],
+        isOutlierBucket: true
+    };
+
+    // Distribute runs into the buckets
+    for (const run of simulationResults) {
+        if (run.finalBalance < maxBalanceForBuckets) {
+            const bucketIndex = Math.min(numCoreBuckets - 1, Math.floor((run.finalBalance - minBalance) / (coreRange / numCoreBuckets)));
+            if (buckets[bucketIndex]) {
+                buckets[bucketIndex].runs.push(run);
+                buckets[bucketIndex].count++;
+            }
+        } else {
+            outlierBucket.runs.push(run);
+            outlierBucket.count++;
         }
-      }
-      for (const bucket of buckets) {
+    }
+    
+    if (outlierBucket.count > 0) {
+        buckets.push(outlierBucket);
+    }
+
+    // Calculate percentages for all buckets
+    for (const bucket of buckets) {
         bucket.percentage = (bucket.count / totalRuns) * 100;
-      }
     }
   }
+
 
   // --- Helper function for displaying drill-down details ---
   async function displayMonthlyBreakdown(title, monthlyData) {
@@ -284,14 +308,13 @@ async function runSimulation() {
     console.log(`\n--- ${title} ---`);
     await delay(longDelay);
 
-    // Perform a new, more granular histogram on just the runs in this bucket
     const subBuckets = [];
     const numSubBuckets = 10;
     const min = bucketRuns[0].finalBalance;
     const max = bucketRuns[bucketRuns.length - 1].finalBalance;
     const range = max - min;
     
-    if (range > 0) {
+    if (range > 0 && bucketRuns.length > 1) {
         const subBucketSize = range / numSubBuckets;
         for (let i = 0; i < numSubBuckets; i++) {
             subBuckets.push({ min: min + i * subBucketSize, max: min + (i+1) * subBucketSize, count: 0 });
@@ -323,7 +346,7 @@ async function runSimulation() {
             }
         }
     } else {
-        console.log(`All ${bucketRuns.length} simulations in this bucket had the same final balance of ${formatVisibleCurrency(min)}.`);
+        console.log(`All ${bucketRuns.length.toLocaleString()} simulations in this bucket had a final balance of ${formatVisibleCurrency(min)}.`);
     }
 
     await delay(longDelay);
@@ -376,11 +399,15 @@ async function runSimulation() {
         if (bucket.percentage >= maxPercentage * 0.66) { color = '#28a745'; fontWeight = 'bold'; } 
         else if (bucket.percentage >= maxPercentage * 0.33) { color = '#ffc107'; }
         else { color = '#dc3545'; }
-
-        const htmlMessage = `$${formatConsoleCurrency(bucket.min)} - $${formatConsoleCurrency(bucket.max)}: ${bucket.count.toLocaleString()} Simulations (<span style="color: ${color}; font-weight: ${fontWeight};">${bucket.percentage.toFixed(2)}%</span>)`;
         
-        if (bucket.percentage >= 25) {
-            console.log(htmlMessage, () => displayBucketDistribution(`Distribution for ${formatVisibleCurrency(bucket.min)} - ${formatVisibleCurrency(bucket.max)}`, bucket.runs));
+        const rangeText = bucket.isOutlierBucket
+            ? `$${formatConsoleCurrency(bucket.min)}+`
+            : `$${formatConsoleCurrency(bucket.min)} - $${formatConsoleCurrency(bucket.max)}`;
+
+        const htmlMessage = `${rangeText}: ${bucket.count.toLocaleString()} Simulations (<span style="color: ${color}; font-weight: ${fontWeight};">${bucket.percentage.toFixed(2)}%</span>)`;
+        
+        if (bucket.percentage >= 25 && bucket.runs.length > 1) {
+            console.log(htmlMessage, () => displayBucketDistribution(`Distribution for ${rangeText}`, bucket.runs));
         } else {
             console.log(htmlMessage);
         }
