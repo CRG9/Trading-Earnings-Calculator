@@ -204,7 +204,6 @@ async function runSimulation() {
 
   // --- CALCULATE HISTOGRAM DISTRIBUTION ---
   const buckets = [];
-  let maxPercentage = 0;
   const totalRuns = simulationResults.length;
   if (totalRuns > 0) {
     const numBuckets = 10;
@@ -219,18 +218,18 @@ async function runSimulation() {
           min: minBalance + i * bucketSize,
           max: minBalance + (i + 1) * bucketSize,
           count: 0,
+          runs: [], // <-- Store the actual runs here
         });
       }
       for (const run of simulationResults) {
         const bucketIndex = Math.min(numBuckets - 1, Math.floor((run.finalBalance - minBalance) / bucketSize));
-        if (buckets[bucketIndex]) buckets[bucketIndex].count++;
+        if (buckets[bucketIndex]) {
+            buckets[bucketIndex].count++;
+            buckets[bucketIndex].runs.push(run); // <-- Add run to the bucket
+        }
       }
-      // Calculate percentages and find the max
       for (const bucket of buckets) {
         bucket.percentage = (bucket.count / totalRuns) * 100;
-        if (bucket.percentage > maxPercentage) {
-          maxPercentage = bucket.percentage;
-        }
       }
     }
   }
@@ -274,6 +273,74 @@ async function runSimulation() {
     detailsView.style.display = "block";
     isViewTransitioning = false;
   }
+  
+  // --- Helper for displaying bucket drill-down ---
+  async function displayBucketDistribution(title, bucketRuns) {
+    if (isViewTransitioning) return;
+    isViewTransitioning = true;
+    detailsView.innerHTML = "";
+    activeView = detailsView;
+
+    console.log(`\n--- ${title} ---`);
+    await delay(longDelay);
+
+    // Perform a new, more granular histogram on just the runs in this bucket
+    const subBuckets = [];
+    const numSubBuckets = 10;
+    const min = bucketRuns[0].finalBalance;
+    const max = bucketRuns[bucketRuns.length - 1].finalBalance;
+    const range = max - min;
+    
+    if (range > 0) {
+        const subBucketSize = range / numSubBuckets;
+        for (let i = 0; i < numSubBuckets; i++) {
+            subBuckets.push({ min: min + i * subBucketSize, max: min + (i+1) * subBucketSize, count: 0 });
+        }
+        for (const run of bucketRuns) {
+            const bucketIndex = Math.min(numSubBuckets - 1, Math.floor((run.finalBalance - min) / subBucketSize));
+            if (subBuckets[bucketIndex]) subBuckets[bucketIndex].count++;
+        }
+
+        let maxSubPercentage = 0;
+        for(const sb of subBuckets) {
+            sb.percentage = (sb.count / bucketRuns.length) * 100;
+            if (sb.percentage > maxSubPercentage) maxSubPercentage = sb.percentage;
+        }
+
+        subBuckets.sort((a, b) => b.percentage - a.percentage);
+
+        for (const sb of subBuckets) {
+            if (sb.count > 0) {
+                let color;
+                let fontWeight = 'normal';
+                if (sb.percentage >= maxSubPercentage * 0.66) { color = '#28a745'; fontWeight = 'bold'; }
+                else if (sb.percentage >= maxSubPercentage * 0.33) { color = '#ffc107'; }
+                else { color = '#dc3545'; }
+
+                const htmlMessage = `$${formatConsoleCurrency(sb.min)} - $${formatConsoleCurrency(sb.max)}: ${sb.count.toLocaleString()} Simulations (<span style="color: ${color}; font-weight: ${fontWeight};">${sb.percentage.toFixed(2)}%</span>)`;
+                console.log(htmlMessage);
+                await delay(shortDelay);
+            }
+        }
+    } else {
+        console.log(`All ${bucketRuns.length} simulations in this bucket had the same final balance of ${formatVisibleCurrency(min)}.`);
+    }
+
+    await delay(longDelay);
+    console.log("\n« Return to Summary", () => {
+      if (isViewTransitioning) return;
+      isViewTransitioning = true;
+      detailsView.style.display = "none";
+      summaryView.style.display = "block";
+      activeView = summaryView;
+      setTimeout(() => { isViewTransitioning = false; }, 100);
+    });
+
+    summaryView.style.display = "none";
+    detailsView.style.display = "block";
+    isViewTransitioning = false;
+  }
+
 
   console.log("\n--- Monte Carlo Simulation Results ---");
   isSummaryPrinting = true;
@@ -294,11 +361,11 @@ async function runSimulation() {
 
   // --- DISPLAY OUTCOME DISTRIBUTION ---
   if (buckets.length > 0) {
+    let maxPercentage = Math.max(...buckets.map(b => b.percentage));
     console.log("");
     console.log("\n--- Outcome Distribution ---");
     await delay(longDelay);
-
-    // --- [NEW] Sort buckets from highest percentage to lowest ---
+    
     buckets.sort((a, b) => b.percentage - a.percentage);
 
     for (const bucket of buckets) {
@@ -306,18 +373,17 @@ async function runSimulation() {
         let color;
         let fontWeight = 'normal';
 
-        if (bucket.percentage >= maxPercentage * 0.66) {
-          color = '#28a745'; // Green
-          fontWeight = 'bold';
-        } else if (bucket.percentage >= maxPercentage * 0.33) {
-          color = '#ffc107'; // Yellow
-        } else {
-          color = '#dc3545'; // Red
-        }
+        if (bucket.percentage >= maxPercentage * 0.66) { color = '#28a745'; fontWeight = 'bold'; } 
+        else if (bucket.percentage >= maxPercentage * 0.33) { color = '#ffc107'; }
+        else { color = '#dc3545'; }
 
         const htmlMessage = `$${formatConsoleCurrency(bucket.min)} - $${formatConsoleCurrency(bucket.max)}: ${bucket.count.toLocaleString()} Simulations (<span style="color: ${color}; font-weight: ${fontWeight};">${bucket.percentage.toFixed(2)}%</span>)`;
         
-        console.log(htmlMessage);
+        if (bucket.percentage >= 25) {
+            console.log(htmlMessage, () => displayBucketDistribution(`Distribution for ${formatVisibleCurrency(bucket.min)} - ${formatVisibleCurrency(bucket.max)}`, bucket.runs));
+        } else {
+            console.log(htmlMessage);
+        }
         await delay(shortDelay);
       }
     }
