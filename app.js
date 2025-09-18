@@ -366,7 +366,7 @@ async function runSimulation() {
   await delay(longDelay);
 
   console.log(
-    `Survival Rate: ${survivalRate.toFixed(2)}% of simulations were solvent.`
+    `Survival Rate: ${survivalRate.toFixed(2)}% of simulations (${survivingRuns.length} runs) were solvent.`
   );
   await delay(shortDelay);
 
