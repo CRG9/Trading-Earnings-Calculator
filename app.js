@@ -157,7 +157,9 @@ function getAndValidateInputs() {
   // Helper function to parse and apply defaults correctly
   const parseOrDefault = (elementId, defaultValue, isFloat = true) => {
     const element = document.getElementById(elementId);
-    const value = isFloat ? parseFloat(element.value) : parseInt(element.value, 10);
+    const value = isFloat
+      ? parseFloat(element.value)
+      : parseInt(element.value, 10);
     return isNaN(value) ? defaultValue : value;
   };
 
@@ -230,13 +232,15 @@ async function runSimulation() {
 
   const allFinalBalances = simulationResults.map((run) => run.finalBalance);
   const totalAverageBalance =
-    allFinalBalances.reduce((sum, val) => sum + val, 0) / allFinalBalances.length;
-  
+    allFinalBalances.reduce((sum, val) => sum + val, 0) /
+    allFinalBalances.length;
+
   // Worst case is now the first item of the comprehensive, sorted list (often $0).
-  const worstCaseOfAll = simulationResults[0]; 
+  const worstCaseOfAll = simulationResults[0];
   const bestCaseOfAll = simulationResults[simulationResults.length - 1];
-  const medianOfAll = simulationResults[Math.floor(simulationResults.length / 2)];
-  
+  const medianOfAll =
+    simulationResults[Math.floor(simulationResults.length / 2)];
+
   // Find the scenario closest to the new, comprehensive average.
   const averageScenarioOfAll = simulationResults.reduce((prev, curr) =>
     Math.abs(curr.finalBalance - totalAverageBalance) <
@@ -248,7 +252,37 @@ async function runSimulation() {
   // --- CALCULATIONS FOR SURVIVING RUNS (for survival rate) ---
   const survivingRuns = simulationResults.filter((run) => run.survived);
   const survivalRate = (survivingRuns.length / params.simulationRuns) * 100;
-  
+
+  // Count up the number of simulations that went to $0 or less (total ruin).
+  const totalRuinCount = simulationResults.reduce(
+    (count, run) => (run.finalBalance <= 0 ? count + 1 : count),
+    0
+  );
+
+  // Count up the number of simulations that finished above the initial balance.
+  // This assumes 'params.startingBalance' holds the starting value.
+  const profitableCount = simulationResults.reduce(
+    (count, run) =>
+      run.finalBalance > params.startingBalance ? count + 1 : count,
+    0
+  );
+
+  // Find the mode (most frequent final balance) and its frequency.
+  // This uses the 'allFinalBalances' array calculated in the previous snippet.
+  const balanceFrequencies = allFinalBalances.reduce((freqMap, balance) => {
+    freqMap.set(balance, (freqMap.get(balance) || 0) + 1);
+    return freqMap;
+  }, new Map());
+
+  let modeFinalBalance = null;
+  let modeFrequency = 0;
+  for (const [balance, count] of balanceFrequencies.entries()) {
+    if (count > modeFrequency) {
+      modeFrequency = count;
+      modeFinalBalance = balance;
+    }
+  }
+
   // --- Helper function for displaying drill-down details ---
   async function displayMonthlyBreakdown(title, monthlyData) {
     if (isViewTransitioning) return;
@@ -332,16 +366,20 @@ async function runSimulation() {
   await delay(longDelay);
 
   console.log(
-    `Survival Rate: ${survivalRate.toFixed(
-      2
-    )}% of simulations were profitable or solvent.`
+    `Survival Rate: ${survivalRate.toFixed(2)}% of simulations were solvent.`
   );
   await delay(shortDelay);
+
+  console.log(
+    `Total Ruined Simulations: ${((totalRuinCount / params.simulationRuns)*100).toFixed(2)}% of simulations (${totalRuinCount} runs) went to $0 or less.`);
+  await delay(shortDelay);  
 
   // --- UPDATE CONSOLE LOGS TO USE THE NEW COMPREHENSIVE VARIABLES ---
   if (averageScenarioOfAll) {
     console.log(
-      `Average Final Balance (all runs): ${formatVisibleCurrency(totalAverageBalance)}`,
+      `Average Final Balance (all runs): ${formatVisibleCurrency(
+        totalAverageBalance
+      )}`,
       () =>
         displayMonthlyBreakdown(
           "Details for Average Scenario",
@@ -363,6 +401,7 @@ async function runSimulation() {
     );
     await delay(shortDelay);
   }
+
   if (bestCaseOfAll) {
     console.log(
       `Best Case Scenario: ${formatVisibleCurrency(
@@ -392,17 +431,17 @@ async function runSimulation() {
   }
 
   // UNLOCK: Clicks are now enabled
-  isSummaryPrinting = false; 
+  isSummaryPrinting = false;
   // Update visuals to show the links are active
-  outputDiv.querySelectorAll('.clickable.printing').forEach(el => {
-    el.classList.remove('printing');
+  outputDiv.querySelectorAll(".clickable.printing").forEach((el) => {
+    el.classList.remove("printing");
   });
 
   console.log("\n--- Simulation Complete ---");
   simulationButton.disabled = false;
 }
 
-// --- Event Listener & Initial Display ---
+// --- Event Listener & Display ---
 (async () => {
   const initialView = document.createElement("div");
   outputDiv.appendChild(initialView);
