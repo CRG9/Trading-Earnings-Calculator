@@ -62,7 +62,13 @@ console.log = function (message, onClickCallback) {
   const p = document.createElement("p");
   p.style.padding = "0.25rem";
 
-  if (typeof message === "string" && /<[a-z][\s\S]*>/i.test(message)) {
+  // Check for the "---" keyword
+  if (typeof message === "string" && message.includes("---")) {
+    // MODIFIED: Wrap the original message without removing "---"
+    p.innerHTML = `<strong style="font-weight: bold;">${message}</strong>`;
+  } 
+  // Existing logic for HTML or plain text messages
+  else if (typeof message === "string" && /<[a-z][\s\S]*>/i.test(message)) {
     p.innerHTML = message;
   } else {
     p.textContent = message;
@@ -555,7 +561,7 @@ async function runSimulation() {
           color = "#28a745";
           fontWeight = "bold";
         } else if (bucket.percentage >= maxPercentage * 0.33) {
-          color = "#ffc107";
+          color = "#d8d803ff";
         } else {
           color = "#dc3545";
         }
@@ -592,7 +598,7 @@ async function runSimulation() {
 
   if (averageScenarioOfAll) {
     console.log(
-      `\nAverage Final Balance (all runs): ${formatVisibleCurrency(
+      `\nAverage Final Balance: ${formatVisibleCurrency(
         totalAverageBalance
       )}`,
       () =>
@@ -605,9 +611,9 @@ async function runSimulation() {
   }
   if (medianOfAll) {
     console.log(
-      `Median Final Balance (all runs): ${formatVisibleCurrency(
+      `Median Final Balance: ${formatVisibleCurrency(
         medianOfAll.finalBalance
-      )} (50% of outcomes were better, 50% were worse)`,
+      )}`,
       () =>
         displayMonthlyBreakdown(
           "Details for Median Scenario",
