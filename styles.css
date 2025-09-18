@@ -2,6 +2,8 @@
   padding: 0;
   margin: 0;
   box-sizing: border-box;
+  font-family: fredoka, sans-serif;
+  font-weight: 400;
 }
 
 html {
@@ -18,13 +20,13 @@ header {
   text-align: center;
   padding: 0.5rem;
   height: 5rem;
+  border-bottom: 3px solid rgb(0, 255, 38);
 }
 
 .main-content {
   margin: 1rem;
   height: 100%;
   padding: 1rem;
-  border: 1px solid red;
   display: grid;
   grid-template-columns: 2fr 1fr;
   justify-items: space-evenly;
@@ -80,6 +82,7 @@ header {
 
 .left-pane-wrapper {
   border: 1px dashed rgb(0, 255, 38);
+  border-radius: 25px;
   height: 100%;
   margin: 1rem;
   padding: 1rem;
@@ -91,6 +94,7 @@ header {
 
 .right-pane-wrapper {
   border: 1px dashed rgb(0, 255, 8);
+  border-radius: 25px;
   height: 100%;
   margin: 1rem;
   padding: 1rem;
