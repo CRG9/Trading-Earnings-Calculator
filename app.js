@@ -180,7 +180,7 @@ async function runSimulation() {
     if (startingBalance <= 0 || timelineMonths <= 0) return 0;
     const totalReturn = (finalBalance - startingBalance) / startingBalance;
     const years = timelineMonths / 12;
-    if (years <= 0) return totalReturn * 100; // If less than a year, don't annualize
+    if (years <= 0) return totalReturn * 100;
 
     if (1 + totalReturn < 0) {
         return -(Math.pow(Math.abs(1 + totalReturn), 1 / years) - 1) * 100;
@@ -275,12 +275,21 @@ async function runSimulation() {
     }
   }
 
-  // --- Helper function for displaying drill-down details ---
+  // --- [UPDATED] Helper for monthly breakdown ---
   async function displayMonthlyBreakdown(title, monthlyData) {
     if (isViewTransitioning) return;
     isViewTransitioning = true;
+    
+    // --- Immediate Feedback ---
     detailsView.innerHTML = "";
     activeView = detailsView;
+    summaryView.style.display = "none";
+    detailsView.style.display = "block";
+    console.log(`\n--- Loading Details: ${title} ---`);
+    await delay(shortDelay); // Allow loading message to render
+    detailsView.innerHTML = ""; // Clear loading message
+    // -------------------------
+
     console.log(`\n--- ${title} ---`);
     await delay(longDelay);
     for (const [index, monthData] of monthlyData.entries()) {
@@ -310,17 +319,24 @@ async function runSimulation() {
       activeView = summaryView;
       setTimeout(() => { isViewTransitioning = false; }, 100);
     });
-    summaryView.style.display = "none";
-    detailsView.style.display = "block";
+    
     isViewTransitioning = false;
   }
   
-  // --- [RESTORED] Helper for displaying bucket drill-down ---
+  // --- [UPDATED] Helper for bucket distribution ---
   async function displayBucketDistribution(title, bucketRuns) {
     if (isViewTransitioning) return;
     isViewTransitioning = true;
+    
+    // --- Immediate Feedback ---
     detailsView.innerHTML = "";
     activeView = detailsView;
+    summaryView.style.display = "none";
+    detailsView.style.display = "block";
+    console.log(`\n--- Loading Drill-Down: ${title} ---`);
+    await delay(shortDelay); // Allow loading message to render
+    detailsView.innerHTML = ""; // Clear loading message
+    // -------------------------
 
     console.log(`\n--- ${title} ---`);
     await delay(longDelay);
@@ -376,8 +392,6 @@ async function runSimulation() {
       setTimeout(() => { isViewTransitioning = false; }, 100);
     });
 
-    summaryView.style.display = "none";
-    detailsView.style.display = "block";
     isViewTransitioning = false;
   }
 
@@ -419,7 +433,6 @@ async function runSimulation() {
 
         const htmlMessage = `${rangeText}: ${bucket.count.toLocaleString()} Simulations (<span style="color: ${color}; font-weight: ${fontWeight};">${bucket.percentage.toFixed(2)}%</span>) | ROI: ${bucket.roiRange} Ann.`;
         
-        // --- [RESTORED] Click handler logic ---
         if (bucket.percentage >= 25 && bucket.runs.length > 1) {
             console.log(htmlMessage, () => displayBucketDistribution(`Distribution for ${rangeText}`, bucket.runs));
         } else {
