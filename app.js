@@ -662,5 +662,4 @@ async function runSimulation() {
   await delay(1000);
   console.log("Please enter your inputs then press the button.");
 })();
-
 simulationButton.addEventListener("click", runSimulation);
