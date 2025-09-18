@@ -325,20 +325,18 @@ async function runSimulation() {
     }
   }
 
-  // --- [UPDATED] Helper for monthly breakdown ---
+  // --- Helper for monthly breakdown ---
   async function displayMonthlyBreakdown(title, monthlyData) {
     if (isViewTransitioning) return;
     isViewTransitioning = true;
 
-    // --- Immediate Feedback ---
     detailsView.innerHTML = "";
     activeView = detailsView;
     summaryView.style.display = "none";
     detailsView.style.display = "block";
     console.log(`\n--- Loading Details: ${title} ---`);
-    await delay(shortDelay); // Allow loading message to render
-    detailsView.innerHTML = ""; // Clear loading message
-    // -------------------------
+    await delay(shortDelay);
+    detailsView.innerHTML = "";
 
     console.log(`\n--- ${title} ---`);
     await delay(longDelay);
@@ -402,20 +400,18 @@ async function runSimulation() {
     isViewTransitioning = false;
   }
 
-  // --- [UPDATED] Helper for bucket distribution ---
-  async function displayBucketDistribution(title, bucketRuns) {
+  // --- [UPDATED] RECURSIVE Helper for bucket distribution ---
+  async function displayBucketDistribution(title, bucketRuns, onBack) {
     if (isViewTransitioning) return;
     isViewTransitioning = true;
 
-    // --- Immediate Feedback ---
     detailsView.innerHTML = "";
     activeView = detailsView;
     summaryView.style.display = "none";
     detailsView.style.display = "block";
     console.log(`\n--- Loading Drill-Down: ${title} ---`);
-    await delay(shortDelay); // Allow loading message to render
-    detailsView.innerHTML = ""; // Clear loading message
-    // -------------------------
+    await delay(shortDelay);
+    detailsView.innerHTML = "";
 
     console.log(`\n--- ${title} ---`);
     await delay(longDelay);
@@ -433,6 +429,7 @@ async function runSimulation() {
           min: min + i * subBucketSize,
           max: min + (i + 1) * subBucketSize,
           count: 0,
+          runs: [],
         });
       }
       for (const run of bucketRuns) {
@@ -440,7 +437,10 @@ async function runSimulation() {
           numSubBuckets - 1,
           Math.floor((run.finalBalance - min) / subBucketSize)
         );
-        if (subBuckets[bucketIndex]) subBuckets[bucketIndex].count++;
+        if (subBuckets[bucketIndex]) {
+          subBuckets[bucketIndex].count++;
+          subBuckets[bucketIndex].runs.push(run);
+        }
       }
 
       let maxSubPercentage = 0;
@@ -463,15 +463,17 @@ async function runSimulation() {
           } else {
             color = "#dc3545";
           }
-
-          const htmlMessage = `$${formatConsoleCurrency(
-            sb.min
-          )} - $${formatConsoleCurrency(
-            sb.max
-          )}: ${sb.count.toLocaleString()} Simulations (<span style="color: ${color}; font-weight: ${fontWeight};">${sb.percentage.toFixed(
-            2
-          )}%</span>)`;
-          console.log(htmlMessage);
+          
+          const rangeText = `$${formatConsoleCurrency(sb.min)} - $${formatConsoleCurrency(sb.max)}`;
+          const htmlMessage = `${rangeText}: ${sb.count.toLocaleString()} Simulations (<span style="color: ${color}; font-weight: ${fontWeight};">${sb.percentage.toFixed(2)}%</span>)`;
+          
+          if (sb.percentage >= 25 && sb.runs.length > 1) {
+            // Create a new "back" function that re-renders the current view
+            const newOnBack = () => displayBucketDistribution(title, bucketRuns, onBack);
+            console.log(htmlMessage, () => displayBucketDistribution(`Distribution for ${rangeText}`, sb.runs, newOnBack));
+          } else {
+            console.log(htmlMessage);
+          }
           await delay(shortDelay);
         }
       }
@@ -484,16 +486,7 @@ async function runSimulation() {
     }
 
     await delay(longDelay);
-    console.log("\n« Return to Summary", () => {
-      if (isViewTransitioning) return;
-      isViewTransitioning = true;
-      detailsView.style.display = "none";
-      summaryView.style.display = "block";
-      activeView = summaryView;
-      setTimeout(() => {
-        isViewTransitioning = false;
-      }, 100);
-    });
+    console.log("\n« Back", onBack);
 
     isViewTransitioning = false;
   }
@@ -542,6 +535,16 @@ async function runSimulation() {
     await delay(longDelay);
 
     buckets.sort((a, b) => b.percentage - a.percentage);
+    
+    // Define the function that returns to the main summary view
+    const returnToSummary = () => {
+        if (isViewTransitioning) return;
+        isViewTransitioning = true;
+        detailsView.style.display = "none";
+        summaryView.style.display = "block";
+        activeView = summaryView;
+        setTimeout(() => { isViewTransitioning = false; }, 100);
+    };
 
     for (const bucket of buckets) {
       if (bucket.count > 0) {
@@ -571,7 +574,8 @@ async function runSimulation() {
           console.log(htmlMessage, () =>
             displayBucketDistribution(
               `Distribution for ${rangeText}`,
-              bucket.runs
+              bucket.runs,
+              returnToSummary // The top-level drill-down goes back to the summary
             )
           );
         } else {
