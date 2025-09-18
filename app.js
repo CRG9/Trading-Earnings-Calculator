@@ -54,13 +54,10 @@ function unformatForEditing(event) {
 // --- Console Output Override ---
 const originalConsoleLog = console.log;
 console.log = function (message, onClickCallback) {
-  // This still logs to the browser's developer console for debugging
   originalConsoleLog(message);
-
   const p = document.createElement("p");
   p.style.padding = "0.25rem";
 
-  // If the message contains HTML tags, render it as HTML. Otherwise, as plain text.
   if (typeof message === 'string' && /<[a-z][\s\S]*>/i.test(message)) {
     p.innerHTML = message;
   } else {
@@ -178,6 +175,20 @@ async function runSimulation() {
 
   const params = validationResult;
 
+  // --- ROI Calculation Helper ---
+  const calculateAnnualizedROI = (finalBalance, startingBalance, timelineMonths) => {
+    if (startingBalance <= 0 || timelineMonths <= 0) return 0;
+    const totalReturn = (finalBalance - startingBalance) / startingBalance;
+    const years = timelineMonths / 12;
+    if (years <= 0) return totalReturn * 100; // If less than a year, don't annualize
+
+    if (1 + totalReturn < 0) {
+        return -(Math.pow(Math.abs(1 + totalReturn), 1 / years) - 1) * 100;
+    }
+    const annualizedReturn = Math.pow(1 + totalReturn, 1 / years) - 1;
+    return annualizedReturn * 100;
+  };
+
   console.log("\n--- Running Monte Carlo Simulation ---");
   await delay(shortDelay);
   console.log(`Simulating ${params.simulationRuns.toLocaleString()} possible futures...`);
@@ -202,61 +213,67 @@ async function runSimulation() {
   const profitableCount = simulationResults.filter(run => run.finalBalance > params.startingBalance).length;
   const losingCount = simulationResults.filter(run => run.finalBalance > 0 && run.finalBalance < params.startingBalance).length;
 
-  // --- [NEW] ADAPTIVE HISTOGRAM CALCULATION ---
+  // --- ADAPTIVE HISTOGRAM CALCULATION ---
   const buckets = [];
   const totalRuns = simulationResults.length;
-  if (totalRuns > 10) { // Only run this logic if there's enough data
+  if (totalRuns > 10) {
     const cutoffPercentile = 0.98;
     const numCoreBuckets = 9;
-
     const cutoffIndex = Math.floor(totalRuns * cutoffPercentile);
     const maxBalanceForBuckets = simulationResults[cutoffIndex].finalBalance;
     const minBalance = worstCaseOfAll.finalBalance;
-    
     const coreRange = maxBalanceForBuckets - minBalance;
 
-    // Initialize core buckets and one for outliers
-    for (let i = 0; i < numCoreBuckets; i++) {
-        const bucketMin = minBalance + i * (coreRange / numCoreBuckets);
-        buckets.push({
-            min: bucketMin,
-            max: bucketMin + (coreRange / numCoreBuckets),
+    if (coreRange > 0) {
+        for (let i = 0; i < numCoreBuckets; i++) {
+            const bucketMin = minBalance + i * (coreRange / numCoreBuckets);
+            buckets.push({
+                min: bucketMin,
+                max: bucketMin + (coreRange / numCoreBuckets),
+                count: 0,
+                runs: [],
+            });
+        }
+        const outlierBucket = {
+            min: maxBalanceForBuckets,
+            max: bestCaseOfAll.finalBalance,
             count: 0,
             runs: [],
-        });
-    }
-    const outlierBucket = {
-        min: maxBalanceForBuckets,
-        max: bestCaseOfAll.finalBalance,
-        count: 0,
-        runs: [],
-        isOutlierBucket: true
-    };
+            isOutlierBucket: true
+        };
 
-    // Distribute runs into the buckets
-    for (const run of simulationResults) {
-        if (run.finalBalance < maxBalanceForBuckets) {
-            const bucketIndex = Math.min(numCoreBuckets - 1, Math.floor((run.finalBalance - minBalance) / (coreRange / numCoreBuckets)));
-            if (buckets[bucketIndex]) {
-                buckets[bucketIndex].runs.push(run);
-                buckets[bucketIndex].count++;
+        for (const run of simulationResults) {
+            if (run.finalBalance < maxBalanceForBuckets) {
+                const bucketIndex = Math.min(numCoreBuckets - 1, Math.floor((run.finalBalance - minBalance) / (coreRange / numCoreBuckets)));
+                if (buckets[bucketIndex]) {
+                    buckets[bucketIndex].runs.push(run);
+                    buckets[bucketIndex].count++;
+                }
+            } else {
+                outlierBucket.runs.push(run);
+                outlierBucket.count++;
             }
-        } else {
-            outlierBucket.runs.push(run);
-            outlierBucket.count++;
+        }
+        
+        if (outlierBucket.count > 0) {
+            buckets.push(outlierBucket);
+        }
+
+        for (const bucket of buckets) {
+            bucket.percentage = (bucket.count / totalRuns) * 100;
+            if (bucket.count > 0) {
+                const roiValues = bucket.runs.map(run => calculateAnnualizedROI(run.finalBalance, params.startingBalance, params.simulationTimeline));
+                const minROI = Math.min(...roiValues);
+                const maxROI = Math.max(...roiValues);
+                if (minROI.toFixed(1) === maxROI.toFixed(1)) {
+                     bucket.roiRange = `${minROI.toFixed(1)}%`;
+                } else {
+                     bucket.roiRange = `${minROI.toFixed(1)}% to ${maxROI.toFixed(1)}%`;
+                }
+            }
         }
     }
-    
-    if (outlierBucket.count > 0) {
-        buckets.push(outlierBucket);
-    }
-
-    // Calculate percentages for all buckets
-    for (const bucket of buckets) {
-        bucket.percentage = (bucket.count / totalRuns) * 100;
-    }
   }
-
 
   // --- Helper function for displaying drill-down details ---
   async function displayMonthlyBreakdown(title, monthlyData) {
@@ -298,7 +315,7 @@ async function runSimulation() {
     isViewTransitioning = false;
   }
   
-  // --- Helper for displaying bucket drill-down ---
+  // --- [RESTORED] Helper for displaying bucket drill-down ---
   async function displayBucketDistribution(title, bucketRuns) {
     if (isViewTransitioning) return;
     isViewTransitioning = true;
@@ -371,14 +388,10 @@ async function runSimulation() {
 
   console.log(`Survival Rate: ${survivalRate.toFixed(2)}% (${survivingRuns.length.toLocaleString()} runs) were solvent.`);
   await delay(shortDelay);
-
   console.log(`Profitable Simulations: ${((profitableCount / params.simulationRuns) * 100).toFixed(2)}% (${profitableCount.toLocaleString()} runs) ended above the initial balance.`);
   await delay(shortDelay);
-
   console.log(`Simulations with a Loss: ${((losingCount / params.simulationRuns) * 100).toFixed(2)}% (${losingCount.toLocaleString()} runs) ended below the initial balance but were not ruined.`);
   await delay(shortDelay);
-
-
   console.log(`Total Ruined Simulations: ${((totalRuinCount / params.simulationRuns) * 100).toFixed(2)}% of simulations (${totalRuinCount} runs) went to $0 or less.`);
   await delay(shortDelay);
 
@@ -404,8 +417,9 @@ async function runSimulation() {
             ? `$${formatConsoleCurrency(bucket.min)}+`
             : `$${formatConsoleCurrency(bucket.min)} - $${formatConsoleCurrency(bucket.max)}`;
 
-        const htmlMessage = `${rangeText}: ${bucket.count.toLocaleString()} Simulations (<span style="color: ${color}; font-weight: ${fontWeight};">${bucket.percentage.toFixed(2)}%</span>)`;
+        const htmlMessage = `${rangeText}: ${bucket.count.toLocaleString()} Simulations (<span style="color: ${color}; font-weight: ${fontWeight};">${bucket.percentage.toFixed(2)}%</span>) | ROI: ${bucket.roiRange} Ann.`;
         
+        // --- [RESTORED] Click handler logic ---
         if (bucket.percentage >= 25 && bucket.runs.length > 1) {
             console.log(htmlMessage, () => displayBucketDistribution(`Distribution for ${rangeText}`, bucket.runs));
         } else {
