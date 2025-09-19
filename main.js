@@ -29,7 +29,7 @@ export function calculateMonthlyProfit(
 }
 
 /**
- * Simulates one "lifetime" of trading over a given timeline.
+ * Simulates one "lifetime" scenario of trading over a given timeline.
  */
 export function accumulateProfits(
     startingBalance,
@@ -46,14 +46,13 @@ export function accumulateProfits(
     const resultsArray = [];
 
     for (let i = 0; i < simulationTimeline; i++) {
-        // This is the critical section that ensures the correct fee is passed.
         const grossMonthlyProfit = calculateMonthlyProfit(
             currentBalance,
             riskPercentage,
             tradesPerWeek,
             winPercentage,
             riskToRewardRatio,
-            myFeePercentage // ✅ Ensures the fee (e.g., 0.03) is used here
+            myFeePercentage
         );
 
         let netMonthlyProfit;
